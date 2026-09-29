@@ -16,7 +16,9 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" options={{ animation: 'none', gestureEnabled: false }} />
         <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
       </Stack>
+
     </>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
 import { AuthScaffold } from '@/components/common/AuthScaffold';
 import { colors } from '@/theme/colors';
@@ -58,6 +59,7 @@ export default function LoginScreen() {
       />
 
       <View style={styles.legalContainer}>
+
         <Text style={styles.legalText}>
           By continuing, you agree to our{' '}
           <Text
@@ -132,6 +134,7 @@ const styles = StyleSheet.create({
   },
   legalContainer: {
     marginTop: 8,
+
     paddingBottom: 16,
     width: '100%',
     alignItems: 'center',

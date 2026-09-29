@@ -95,8 +95,13 @@ export default function OtpScreen() {
   const handleVerify = () => {
     if (!isValidOtp) {
       showVerificationFailedToast();
+      return;
     }
+
+    router.replace('/(tabs)' as any);
+
   };
+
 
   if (!phoneNumber) {
     return null;

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -14,9 +14,10 @@ const TRACK_WIDTH = 80;
 
 export default function SplashRoute() {
   const router = useRouter();
-  const progress = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(1)).current;
+  const [progress] = useState(() => new Animated.Value(0));
+  const [opacity] = useState(() => new Animated.Value(1));
   const hasNavigated = useRef(false);
+
 
   const fillWidth = progress.interpolate({
     inputRange: [0, 1],
@@ -60,6 +61,7 @@ export default function SplashRoute() {
         hasNavigated.current = true;
         router.replace('/(auth)/login');
       });
+
     });
 
     return () => {

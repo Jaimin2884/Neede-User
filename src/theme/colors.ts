@@ -31,7 +31,6 @@ export const colors = {
   freeDeliveryText: '#1B73B3',
   discountBadge: '#E23744',
   starRating: '#F59E0B',
-  darkFloatingBar: '#1A2332',
   selectFindsBg: '#7A4725',
 } as const;
 

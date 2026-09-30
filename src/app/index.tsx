@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { images } from '@/constants/images';
+import { useAuth } from '@/hooks/useAuth';
 import { colors } from '@/theme/colors';
 
 const SPLASH_DURATION_MS = 900;
@@ -17,6 +18,8 @@ export default function SplashRoute() {
   const [progress] = useState(() => new Animated.Value(0));
   const [opacity] = useState(() => new Animated.Value(1));
   const hasNavigated = useRef(false);
+  const [animationDone, setAnimationDone] = useState(false);
+  const { isAuthenticated, isHydrated } = useAuth();
 
 
   const fillWidth = progress.interpolate({
@@ -58,8 +61,7 @@ export default function SplashRoute() {
           return;
         }
 
-        hasNavigated.current = true;
-        router.replace('/(auth)/login');
+        setAnimationDone(true);
       });
 
     });
@@ -67,7 +69,16 @@ export default function SplashRoute() {
     return () => {
       animation.stop();
     };
-  }, [opacity, progress, router]);
+  }, [opacity, progress]);
+
+  useEffect(() => {
+    if (!animationDone || !isHydrated || hasNavigated.current) {
+      return;
+    }
+
+    hasNavigated.current = true;
+    router.replace(isAuthenticated ? '/tabs' : '/auth/login');
+  }, [animationDone, isAuthenticated, isHydrated, router]);
 
   return (
     <Animated.View style={[styles.root, { opacity }]}>

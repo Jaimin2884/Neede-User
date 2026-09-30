@@ -9,7 +9,8 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { DealItem, dealsNearYou } from '@/data/homeData';
+import { dealsNearYou } from '@/constants/homeData';
+import type { DealItem } from '@/types/home';
 import { colors } from '@/theme/colors';
 
 interface DealsSectionProps {

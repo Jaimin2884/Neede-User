@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useRouter } from 'expo-router';
 import {
   StyleSheet,
   View,
@@ -9,26 +10,19 @@ import {
   TouchableOpacity,
 } from 'react-native';
 
-import { HomeHeader } from '@/components/home/HomeHeader';
-import { BannerSlider } from '@/components/home/BannerSlider';
-import { TopStoresSection } from '@/components/home/TopStoresSection';
-import { DealsSection } from '@/components/home/DealsSection';
-import { CategoryGridSection } from '@/components/home/CategoryGridSection';
-import { FloatingDeliveryBar } from '@/components/home/FloatingDeliveryBar';
-import {
-  groceryKitchenCategories,
-  snacksDrinksCategories,
-  BannerItem,
-  StoreItem,
-  DealItem,
-  CategoryItem,
-} from '@/data/homeData';
+import { CategoryGridSection } from '@/components/cards/CategoryGridSection';
+import { DealsSection } from '@/components/cards/DealsSection';
+import { TopStoresSection } from '@/components/cards/TopStoresSection';
+import { BannerSlider } from '@/components/common/BannerSlider';
+import { HomeHeader } from '@/components/common/HomeHeader';
+import { groceryKitchenCategories, snacksDrinksCategories } from '@/constants/homeData';
+import type { BannerItem, CategoryItem, DealItem, StoreItem } from '@/types/home';
 import { colors } from '@/theme/colors';
 
 const BOTTOM_PEEK_TAGS = ['Dragon Fruit', 'Snacks Corner', 'Baby Apple', 'Apple Cider'];
 
 export default function HomeScreen() {
-  const [cartCount, setCartCount] = useState(0);
+  const router = useRouter();
 
   const handleSearchPress = () => {
     Alert.alert('Search', 'Search for groceries, snacks, household items and more.');
@@ -39,7 +33,7 @@ export default function HomeScreen() {
   };
 
   const handleProfilePress = () => {
-    Alert.alert('Profile', 'Manage your account, addresses, and orders.');
+    router.push('/profile');
   };
 
 
@@ -59,13 +53,6 @@ export default function HomeScreen() {
     Alert.alert(
       category.name.replace('\n', ' '),
       `Exploring all products in ${category.name.replace('\n', ' ')}`
-    );
-  };
-
-  const handleUnlockDeliveryPress = () => {
-    Alert.alert(
-      'Free Delivery',
-      'Add items worth ₹149 to your cart to get 100% Free Delivery!'
     );
   };
 
@@ -99,7 +86,6 @@ export default function HomeScreen() {
         {/* Deals Near You */}
         <DealsSection
           onDealPress={handleDealPress}
-          onCartChange={setCartCount}
           onSeeAllPress={() => Alert.alert('All Deals', 'Showing all hot deals in your area.')}
         />
 
@@ -138,17 +124,7 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* Extra spacing so content is never hidden behind floating delivery pill */}
-        <View style={styles.bottomSpacer} />
       </ScrollView>
-
-      {/* Floating Bottom Delivery Bar */}
-      <View style={styles.floatingBarAnchor}>
-        <FloatingDeliveryBar
-          onPress={handleUnlockDeliveryPress}
-          shopAmount={Math.max(149 - cartCount * 25, 0)}
-        />
-      </View>
 
     </View>
   );
@@ -182,15 +158,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#334155',
-  },
-  bottomSpacer: {
-    height: 90,
-  },
-  floatingBarAnchor: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
   },
 });

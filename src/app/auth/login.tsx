@@ -2,32 +2,51 @@ import { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
 import { AuthScaffold } from '@/components/common/AuthScaffold';
+import { useAuth } from '@/hooks/useAuth';
+import { getApiErrorMessage } from '@/services/api';
 import { colors } from '@/theme/colors';
+import { digitsOnly, isIndianMobile } from '@/utils/validation';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { sendOtp } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isValidPhone = phoneNumber.length === 10 && /^\d+$/.test(phoneNumber);
+  const isValidPhone = isIndianMobile(phoneNumber);
 
   const handlePhoneNumberChange = (value: string) => {
-    setPhoneNumber(value.replace(/\D/g, '').slice(0, 10));
+    setPhoneNumber(digitsOnly(value));
   };
 
-  const handleContinue = () => {
-    if (!isValidPhone) {
-      Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
+  const handleContinue = async () => {
+    if (!isValidPhone || isSubmitting) {
+      if (!isValidPhone) {
+        Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
+      }
       return;
     }
 
-    router.push({
-      pathname: '/(auth)/otp',
-      params: { phone: phoneNumber },
-    });
+    setIsSubmitting(true);
+
+    try {
+      const result = await sendOtp(phoneNumber);
+      router.push({
+        pathname: '/auth/otp',
+        params: {
+          phone: phoneNumber,
+          resendAfter: String(result.resendAfter),
+          otp: result.otp,
+        },
+      });
+    } catch (error) {
+      Alert.alert('Could not send OTP', getApiErrorMessage(error, 'Please try again.'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -52,8 +71,8 @@ export default function LoginScreen() {
       </View>
 
       <PrimaryButton
-        label="Continue"
-        disabled={!isValidPhone}
+        label={isSubmitting ? 'Sending OTP...' : 'Continue'}
+        disabled={!isValidPhone || isSubmitting}
         onPress={handleContinue}
         style={styles.continueButton}
       />

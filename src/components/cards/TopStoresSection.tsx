@@ -9,7 +9,8 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { StoreItem, topStores } from '@/data/homeData';
+import { topStores } from '@/constants/homeData';
+import type { StoreItem } from '@/types/home';
 import { colors } from '@/theme/colors';
 
 interface TopStoresSectionProps {

@@ -5,9 +5,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
 import { AuthScaffold } from '@/components/common/AuthScaffold';
+import { OtpGeneratedModal } from '@/components/modals/OtpGeneratedModal';
+import { DEFAULT_OTP_RESEND_SECONDS, OTP_LENGTH } from '@/constants/config';
+import { useAuth } from '@/hooks/useAuth';
+import { getApiErrorMessage } from '@/services/api';
 import { colors } from '@/theme/colors';
-
-const OTP_LENGTH = 4;
+import { isIndianMobile } from '@/utils/validation';
 
 function readPhoneParam(phone: string | string[] | undefined) {
   if (Array.isArray(phone)) {
@@ -17,24 +20,55 @@ function readPhoneParam(phone: string | string[] | undefined) {
   return phone ?? '';
 }
 
+function readOtpParam(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw && /^\d{4}$/.test(raw) ? raw : '';
+}
+
+function readResendParam(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.ceil(parsed) : DEFAULT_OTP_RESEND_SECONDS;
+}
+
 export default function OtpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ phone?: string | string[] }>();
+  const { verifyOtp, sendOtp } = useAuth();
+  const params = useLocalSearchParams<{
+    phone?: string | string[];
+    resendAfter?: string | string[];
+    otp?: string | string[];
+  }>();
   const phoneNumber = readPhoneParam(params.phone);
+  const generatedOtp = readOtpParam(params.otp);
   const [otp, setOtp] = useState(() => Array(OTP_LENGTH).fill(''));
-  const [isToastVisible, setIsToastVisible] = useState(false);
+  const [modalOtp, setModalOtp] = useState(generatedOtp);
+  const [isOtpModalVisible, setIsOtpModalVisible] = useState(generatedOtp.length === OTP_LENGTH);
+  const [toastMessage, setToastMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendIn, setResendIn] = useState(() => readResendParam(params.resendAfter));
   const otpInputs = useRef<(TextInput | null)[]>([]);
   const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const otpCode = otp.join('');
-  const isValidOtp = otpCode.length === OTP_LENGTH;
+  const isValidOtp = otp.every((digit) => /^\d$/.test(digit));
 
   useEffect(() => {
-    if (!phoneNumber) {
-      router.replace('/(auth)/login');
+    if (!isIndianMobile(phoneNumber)) {
+      router.replace('/auth/login');
     }
   }, [phoneNumber, router]);
+
+  useEffect(() => {
+    if (generatedOtp.length !== OTP_LENGTH) {
+      return;
+    }
+
+    setModalOtp(generatedOtp);
+    setIsOtpModalVisible(true);
+  }, [generatedOtp]);
 
   useEffect(() => {
     return () => {
@@ -44,15 +78,32 @@ export default function OtpScreen() {
     };
   }, []);
 
-  const showVerificationFailedToast = () => {
+  useEffect(() => {
+    if (resendIn <= 0) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setResendIn((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [resendIn]);
+
+  const showToast = (message: string) => {
     if (toastTimeout.current) {
       clearTimeout(toastTimeout.current);
     }
 
-    setIsToastVisible(true);
+    setToastMessage(message);
     toastTimeout.current = setTimeout(() => {
-      setIsToastVisible(false);
+      setToastMessage('');
     }, 2200);
+  };
+
+  const resetOtp = () => {
+    setOtp(Array(OTP_LENGTH).fill(''));
+    otpInputs.current[0]?.focus();
   };
 
   const handleOtpChange = (value: string, index: number) => {
@@ -89,21 +140,51 @@ export default function OtpScreen() {
       return;
     }
 
-    router.replace('/(auth)/login');
+    router.replace('/auth/login');
   };
 
-  const handleVerify = () => {
-    if (!isValidOtp) {
-      showVerificationFailedToast();
+  const handleVerify = async () => {
+    if (!isValidOtp || isSubmitting) {
+      if (!isValidOtp) {
+        showToast('Enter the 4-digit OTP.');
+      }
       return;
     }
 
-    router.replace('/(tabs)' as any);
+    setIsSubmitting(true);
 
+    try {
+      await verifyOtp(phoneNumber, otpCode);
+      router.replace('/tabs');
+    } catch (error) {
+      resetOtp();
+      showToast(getApiErrorMessage(error, 'Verification failed'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  const handleResend = async () => {
+    if (resendIn > 0 || isResending || isSubmitting) {
+      return;
+    }
 
-  if (!phoneNumber) {
+    setIsResending(true);
+
+    try {
+      const result = await sendOtp(phoneNumber);
+      resetOtp();
+      setResendIn(result.resendAfter);
+      setModalOtp(result.otp);
+      setIsOtpModalVisible(true);
+    } catch (error) {
+      showToast(getApiErrorMessage(error, 'Could not resend OTP.'));
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  if (!isIndianMobile(phoneNumber)) {
     return null;
   }
 
@@ -147,23 +228,43 @@ export default function OtpScreen() {
               maxLength={index === 0 ? OTP_LENGTH : 1}
               textAlign="center"
               selectTextOnFocus
+              textContentType={index === 0 ? 'oneTimeCode' : 'none'}
+              autoComplete={index === 0 ? 'sms-otp' : 'off'}
+              editable={!isSubmitting}
             />
           ))}
         </View>
 
-        <PrimaryButton label="Verify & Continue" disabled={!isValidOtp} onPress={handleVerify} />
+        <PrimaryButton
+          label={isSubmitting ? 'Verifying...' : 'Verify & Continue'}
+          disabled={!isValidOtp || isSubmitting}
+          onPress={handleVerify}
+        />
 
         <Pressable
           style={({ pressed }) => [styles.resendButton, pressed && styles.pressed]}
-          onPress={() => {}}
+          onPress={handleResend}
+          disabled={resendIn > 0 || isResending || isSubmitting}
         >
-          <Text style={styles.resendText}>Resend OTP</Text>
+          <Text style={[styles.resendText, (resendIn > 0 || isResending) && styles.resendTextDisabled]}>
+            {isResending
+              ? 'Sending OTP...'
+              : resendIn > 0
+                ? `Resend OTP in ${resendIn}s`
+                : 'Resend OTP'}
+          </Text>
         </Pressable>
       </AuthScaffold>
 
-      {isToastVisible ? (
+      <OtpGeneratedModal
+        visible={isOtpModalVisible}
+        otp={modalOtp}
+        onClose={() => setIsOtpModalVisible(false)}
+      />
+
+      {toastMessage ? (
         <View style={[styles.toast, { bottom: Math.max(insets.bottom, 16) + 12 }]}>
-          <Text style={styles.toastText}>Verification failed</Text>
+          <Text style={styles.toastText}>{toastMessage}</Text>
         </View>
       ) : null}
     </View>
@@ -255,9 +356,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   resendText: {
-    color: colors.textSecondary,
+    color: colors.primary,
     fontSize: 12,
     fontWeight: '600',
+  },
+  resendTextDisabled: {
+    color: colors.textSecondary,
   },
   pressed: {
     opacity: 0.8,

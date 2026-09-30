@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { dealsNearYou, DealItem } from '@/data/homeData';
+import { dealsNearYou } from '@/constants/homeData';
+import type { DealItem } from '@/types/home';
 import { colors } from '@/theme/colors';
 
 export default function OrderAgainScreen() {

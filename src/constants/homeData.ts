@@ -1,46 +1,5 @@
-import { ImageSourcePropType } from 'react-native';
 import { images } from '@/constants/images';
-
-export interface BannerItem {
-  id: string;
-  tag: string;
-  subtag?: string;
-  title: string;
-  subtitle: string;
-  ctaText: string;
-  image: ImageSourcePropType;
-  bgTint?: string;
-}
-
-export interface StoreItem {
-  id: string;
-  name: string;
-  rating: number;
-  distance: string;
-  time: string;
-  tag: string;
-  image: ImageSourcePropType;
-  logoText: string;
-}
-
-export interface DealItem {
-  id: string;
-  title: string;
-  weight: string;
-  price: number;
-  originalPrice: number;
-  discount: string;
-  image: ImageSourcePropType;
-}
-
-export interface CategoryItem {
-  id: string;
-  name: string;
-  image?: ImageSourcePropType;
-  remoteImageUrl?: string;
-  iconFallback?: string;
-  badge?: string;
-}
+import type { BannerItem, CategoryItem, DealItem, StoreItem } from '@/types/home';
 
 export const homeBanners: BannerItem[] = [
   {

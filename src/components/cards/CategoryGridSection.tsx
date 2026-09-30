@@ -8,7 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CategoryItem } from '@/data/homeData';
+import type { CategoryItem } from '@/types/home';
 import { colors } from '@/theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

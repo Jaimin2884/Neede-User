@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, View, Text, ScrollView, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CategoryGridSection } from '@/components/home/CategoryGridSection';
-import { groceryKitchenCategories, snacksDrinksCategories } from '@/data/homeData';
+import { CategoryGridSection } from '@/components/cards/CategoryGridSection';
+import { groceryKitchenCategories, snacksDrinksCategories } from '@/constants/homeData';
 
 export default function CategoryScreen() {
   const insets = useSafeAreaInsets();

@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text, ScrollView, StatusBar, TouchableOpacity, Image, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { topStores } from '@/data/homeData';
+import { topStores } from '@/constants/homeData';
 import { colors } from '@/theme/colors';
 
 export default function StoresScreen() {

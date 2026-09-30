@@ -56,12 +56,12 @@ neede/
 │   │   ├── _layout.tsx
 │   │   ├── index.tsx
 │   │   │
-│   │   ├── (auth)/
+│   │   ├── auth/
 │   │   │   ├── login.tsx
 │   │   │   ├── register.tsx
 │   │   │   └── forgot-password.tsx
 │   │   │
-│   │   ├── (tabs)/
+│   │   ├── tabs/
 │   │   │   ├── _layout.tsx
 │   │   │   ├── index.tsx
 │   │   │   ├── shops.tsx
@@ -390,14 +390,14 @@ Routes belong inside:
 src/app/
 ```
 
-Use route groups such as:
+Use these route folders:
 
 ```text
-(auth)
-(tabs)
+src/app/auth/
+src/app/tabs/
 ```
 
-when screens belong to a specific navigation flow but should not affect the URL/path structure.
+`auth` holds login and registration screens. `tabs` holds the main tab screens. These folder names are part of the route path.
 
 Dynamic routes should use Expo Router's standard format:
 

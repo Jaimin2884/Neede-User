@@ -11,7 +11,8 @@ import {
   Platform,
 } from 'react-native';
 
-import { BannerItem, homeBanners } from '@/data/homeData';
+import { homeBanners } from '@/constants/homeData';
+import type { BannerItem } from '@/types/home';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BANNER_MARGIN = 16;

@@ -30,7 +30,7 @@ type AccountItem = {
 };
 
 const accountItems: AccountItem[] = [
-  { icon: 'location-outline', label: 'Saved Addresses' },
+  { icon: 'location-outline', label: 'Address Book' },
   { icon: 'heart-outline', label: 'Favourite Shops' },
   { icon: 'time-outline', label: 'Recently Visited Shops' },
   { icon: 'bookmark-outline', label: 'Wishlist' },
@@ -71,6 +71,11 @@ export default function ProfileScreen() {
   const displayEmail = user?.email?.trim() || 'Email not added';
 
   const openSection = (label: string) => {
+    if (label === 'Address Book') {
+      router.push('/address-book');
+      return;
+    }
+
     Alert.alert(label, 'This section will be available soon.');
   };
 

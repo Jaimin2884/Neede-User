@@ -19,7 +19,8 @@ function AuthSessionGate() {
       return;
     }
 
-    const isProtectedRoute = segments[0] === 'tabs' || segments[0] === 'profile';
+    const isProtectedRoute =
+      segments[0] === 'tabs' || segments[0] === 'profile' || segments[0] === 'address-book';
 
     if (!isAuthenticated && isProtectedRoute) {
       router.replace('/auth/login');
@@ -52,6 +53,13 @@ function RootNavigator() {
         <Stack.Screen name="tabs" />
         <Stack.Screen
           name="profile"
+          options={{
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+          }}
+        />
+        <Stack.Screen
+          name="address-book"
           options={{
             animation: 'slide_from_right',
             gestureEnabled: true,

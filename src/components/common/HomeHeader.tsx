@@ -15,6 +15,8 @@ interface HomeHeaderProps {
   onSearchPress?: () => void;
   onProfilePress?: () => void;
   onAddressPress?: () => void;
+  locationLabel?: string;
+  locationDetail?: string;
 }
 
 const PLACEHOLDERS = [
@@ -29,6 +31,8 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
   onSearchPress,
   onProfilePress,
   onAddressPress,
+  locationLabel = 'Address Book',
+  locationDetail = 'Select a delivery address',
 }) => {
   const insets = useSafeAreaInsets();
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -68,7 +72,8 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
         onPress={onAddressPress}
       >
         <Text style={styles.locationText} numberOfLines={1}>
-          <Text style={styles.locationTag}>HOME</Text> - D-15, 4th floor, Shivganga
+          <Text style={styles.locationTag}>{locationLabel}</Text>
+          {locationDetail ? ` - ${locationDetail}` : ''}
         </Text>
         <Ionicons name="chevron-down" size={15} color="#FFFFFF" style={styles.chevronIcon} />
       </TouchableOpacity>

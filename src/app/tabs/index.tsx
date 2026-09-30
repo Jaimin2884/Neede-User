@@ -1,5 +1,5 @@
-import React from 'react';
-import { useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   StyleSheet,
   View,
@@ -18,21 +18,53 @@ import { HomeHeader } from '@/components/common/HomeHeader';
 import { LocationRequiredModal } from '@/components/modals/LocationRequiredModal';
 import { groceryKitchenCategories, snacksDrinksCategories } from '@/constants/homeData';
 import { useRequireLocation } from '@/hooks/useRequireLocation';
+import { getCustomerAddresses } from '@/services/addressApi';
 import type { BannerItem, CategoryItem, DealItem, StoreItem } from '@/types/home';
 import { colors } from '@/theme/colors';
+import { displayAddressLabel } from '@/utils/address';
 
 const BOTTOM_PEEK_TAGS = ['Dragon Fruit', 'Snacks Corner', 'Baby Apple', 'Apple Cider'];
 
 export default function HomeScreen() {
   const router = useRouter();
   const { prompt: locationPrompt, enableLocation } = useRequireLocation();
+  const [locationLabel, setLocationLabel] = useState('Address Book');
+  const [locationDetail, setLocationDetail] = useState('Select a delivery address');
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      getCustomerAddresses()
+        .then((addresses) => {
+          if (!active) {
+            return;
+          }
+
+          const selected = addresses.find((item) => item.is_default) ?? addresses[0];
+          if (!selected) {
+            setLocationLabel('Address Book');
+            setLocationDetail('Select a delivery address');
+            return;
+          }
+
+          setLocationLabel(displayAddressLabel(selected));
+          setLocationDetail(selected.complete_address);
+        })
+        .catch(() => undefined);
+
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   const handleSearchPress = () => {
     Alert.alert('Search', 'Search for groceries, snacks, household items and more.');
   };
 
   const handleAddressPress = () => {
-    Alert.alert('Select Delivery Location', 'Current: HOME - D-15, 4th floor, Shivganga');
+    router.push({ pathname: '/address-book', params: { mode: 'select' } });
   };
 
   const handleProfilePress = () => {
@@ -68,6 +100,8 @@ export default function HomeScreen() {
         onSearchPress={handleSearchPress}
         onAddressPress={handleAddressPress}
         onProfilePress={handleProfilePress}
+        locationLabel={locationLabel}
+        locationDetail={locationDetail}
       />
 
 

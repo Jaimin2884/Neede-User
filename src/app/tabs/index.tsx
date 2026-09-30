@@ -15,7 +15,9 @@ import { DealsSection } from '@/components/cards/DealsSection';
 import { TopStoresSection } from '@/components/cards/TopStoresSection';
 import { BannerSlider } from '@/components/common/BannerSlider';
 import { HomeHeader } from '@/components/common/HomeHeader';
+import { LocationRequiredModal } from '@/components/modals/LocationRequiredModal';
 import { groceryKitchenCategories, snacksDrinksCategories } from '@/constants/homeData';
+import { useRequireLocation } from '@/hooks/useRequireLocation';
 import type { BannerItem, CategoryItem, DealItem, StoreItem } from '@/types/home';
 import { colors } from '@/theme/colors';
 
@@ -23,6 +25,7 @@ const BOTTOM_PEEK_TAGS = ['Dragon Fruit', 'Snacks Corner', 'Baby Apple', 'Apple 
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { prompt: locationPrompt, enableLocation } = useRequireLocation();
 
   const handleSearchPress = () => {
     Alert.alert('Search', 'Search for groceries, snacks, household items and more.');
@@ -126,6 +129,15 @@ export default function HomeScreen() {
 
       </ScrollView>
 
+      <LocationRequiredModal
+        visible={locationPrompt !== null}
+        title={locationPrompt?.title ?? ''}
+        message={locationPrompt?.message ?? ''}
+        actionLabel={locationPrompt?.actionLabel ?? ''}
+        onAction={() => {
+          void enableLocation();
+        }}
+      />
     </View>
   );
 }

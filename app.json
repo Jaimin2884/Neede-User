@@ -33,7 +33,13 @@
         }
       ],
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Neede needs your location turned on to show nearby stores and deliver your orders."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

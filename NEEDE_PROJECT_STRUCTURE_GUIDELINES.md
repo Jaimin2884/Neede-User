@@ -69,10 +69,10 @@ neede/
 │   │   │   └── profile.tsx
 │   │   │
 │   │   ├── shop/
-│   │   │   └── [id].tsx
+│   │   │   └── id.tsx
 │   │   │
 │   │   ├── product/
-│   │   │   └── [id].tsx
+│   │   │   └── id.tsx
 │   │   │
 │   │   ├── cart/
 │   │   │   └── index.tsx
@@ -168,8 +168,8 @@ A new screen should be created here rather than creating a separate top-level `s
 Example:
 
 ```text
-src/app/shop/[id].tsx
-src/app/product/[id].tsx
+src/app/shop/id.tsx
+src/app/product/id.tsx
 ```
 
 ---
@@ -399,11 +399,11 @@ src/app/tabs/
 
 `auth` holds login and registration screens. `tabs` holds the main tab screens. These folder names are part of the route path.
 
-Dynamic routes should use Expo Router's standard format:
+Detail screens use a fixed `id.tsx` file. Pass the record id as a route parameter:
 
 ```text
-shop/[id].tsx
-product/[id].tsx
+shop/id.tsx
+product/id.tsx
 ```
 
 Do not introduce a second navigation architecture without a specific requirement.

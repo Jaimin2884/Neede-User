@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Provider } from 'react-redux';
 
+import { DefaultAddressGate } from '@/components/modals/DefaultAddressGate';
 import { useAppDispatch } from '@/hooks/useAppSelector';
 import { useAuth } from '@/hooks/useAuth';
 import { store } from '@/store';
@@ -20,7 +21,10 @@ function AuthSessionGate() {
     }
 
     const isProtectedRoute =
-      segments[0] === 'tabs' || segments[0] === 'profile' || segments[0] === 'address-book';
+      segments[0] === 'tabs' ||
+      segments[0] === 'profile' ||
+      segments[0] === 'address-book' ||
+      segments[0] === 'category';
 
     if (!isAuthenticated && isProtectedRoute) {
       router.replace('/auth/login');
@@ -41,6 +45,7 @@ function RootNavigator() {
     <>
       <StatusBar style="dark" />
       <AuthSessionGate />
+      <DefaultAddressGate />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -60,6 +65,13 @@ function RootNavigator() {
         />
         <Stack.Screen
           name="address-book"
+          options={{
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+          }}
+        />
+        <Stack.Screen
+          name="category/id"
           options={{
             animation: 'slide_from_right',
             gestureEnabled: true,

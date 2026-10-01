@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -146,8 +147,10 @@ function applyResolvedLocation(draft: DraftAddress, location: ResolvedLocation):
 
 export default function AddressFormScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const navigation = useNavigation();
+  const { id, required } = useLocalSearchParams<{ id?: string; required?: string }>();
   const editingId = id ? Number(id) : null;
+  const isRequired = !editingId && (required === '1' || required === 'true');
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
@@ -445,7 +448,7 @@ export default function AddressFormScreen() {
       postal_code: draft.postalCode.trim() || null,
       latitude: draft.latitude,
       longitude: draft.longitude,
-      is_default: editingAddress?.is_default ?? false,
+      is_default: editingAddress?.is_default ?? isRequired,
       is_current_location: draft.isCurrentLocation,
     };
   };
@@ -496,6 +499,37 @@ export default function AddressFormScreen() {
     updateDraft({ receiverType: 'someone' });
   };
 
+  useEffect(() => {
+    if (!isRequired) {
+      return;
+    }
+
+    const parent = navigation.getParent();
+    parent?.setOptions({ gestureEnabled: false });
+
+    return () => {
+      parent?.setOptions({ gestureEnabled: true });
+    };
+  }, [isRequired, navigation]);
+
+  useEffect(() => {
+    if (!isRequired) {
+      return;
+    }
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (step === 'pin') {
+        setStep('details');
+      }
+
+      return true;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isRequired, step]);
+
   if (!user || !draft || loadingEdit) {
     return (
       <View style={styles.centered}>
@@ -511,6 +545,18 @@ export default function AddressFormScreen() {
       return;
     }
 
+    if (isRequired) {
+      return;
+    }
+
+    router.back();
+  };
+
+  const leaveForm = () => {
+    if (isRequired) {
+      return;
+    }
+
     router.back();
   };
 
@@ -522,6 +568,7 @@ export default function AddressFormScreen() {
 
     return (
       <View style={styles.container}>
+        {isRequired ? <Stack.Screen options={{ gestureEnabled: false }} /> : null}
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 8 }]}>
           <Pressable
             style={({ pressed }) => [styles.navButton, pressed && styles.pressed]}
@@ -617,13 +664,18 @@ export default function AddressFormScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {isRequired ? <Stack.Screen options={{ gestureEnabled: false }} /> : null}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 8 }]}>
-        <Pressable
-          style={({ pressed }) => [styles.navButton, pressed && styles.pressed]}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={20} color={colors.primary} />
-        </Pressable>
+        {isRequired ? (
+          <View style={styles.headerSpacer} />
+        ) : (
+          <Pressable
+            style={({ pressed }) => [styles.navButton, pressed && styles.pressed]}
+            onPress={leaveForm}
+          >
+            <Ionicons name="arrow-back" size={20} color={colors.primary} />
+          </Pressable>
+        )}
         <Text style={styles.headerTitle}>{editingAddress ? 'Edit address details' : 'Add address details'}</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -760,15 +812,27 @@ export default function AddressFormScreen() {
         </Pressable>
       </View>
 
-      <Modal visible={showLocationSheet} transparent animationType="slide" onRequestClose={closeLocationSheet}>
+      <Modal
+        visible={showLocationSheet}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={closeLocationSheet}
+      >
         <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={closeLocationSheet} />
+          {isRequired ? (
+            <View style={StyleSheet.absoluteFill} />
+          ) : (
+            <Pressable style={StyleSheet.absoluteFill} onPress={closeLocationSheet} />
+          )}
           <View style={[styles.bottomSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <View style={styles.dragHandle} />
             <View style={styles.sheetIconCircle}>
-              <Ionicons name="navigate-circle" size={42} color={colors.primary} />
+              <Ionicons name="navigate" size={28} color={colors.primary} />
             </View>
-            <Text style={styles.sheetTitle}>Do you want this order at your current location?</Text>
+            <Text style={styles.sheetTitle}>Where should we deliver?</Text>
+            <Text style={styles.sheetMessage}>
+              Use your current location, or search for another area.
+            </Text>
 
             <Pressable
               style={({ pressed }) => [styles.sheetPrimaryOption, pressed && styles.pressed]}
@@ -779,7 +843,7 @@ export default function AddressFormScreen() {
                 <ActivityIndicator color={colors.white} />
               ) : (
                 <>
-                  <Text style={styles.sheetPrimaryOptionText}>Yes, deliver at my current location</Text>
+                  <Text style={styles.sheetPrimaryOptionText}>Deliver at my current location</Text>
                   {currentLocationPreview ? (
                     <Text style={styles.sheetPrimaryOptionSub}>{currentLocationPreview}</Text>
                   ) : null}
@@ -795,7 +859,7 @@ export default function AddressFormScreen() {
               }}
               disabled={locating}
             >
-              <Text style={styles.sheetSecondaryOptionText}>No, at some other location</Text>
+              <Text style={styles.sheetSecondaryOptionText}>Deliver somewhere else</Text>
             </Pressable>
 
             {showManualSearch ? (
@@ -1071,23 +1135,39 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sheetIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
     alignSelf: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   sheetTitle: {
     color: '#0F172A',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 20,
     lineHeight: 26,
+  },
+  sheetMessage: {
+    marginTop: 8,
+    marginBottom: 20,
+    color: '#64748B',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
   },
   sheetPrimaryOption: {
     backgroundColor: colors.primary,
     borderRadius: 14,
+    minHeight: 52,
     paddingVertical: 16,
     paddingHorizontal: 16,
     marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sheetPrimaryOptionText: {
     color: colors.white,
@@ -1107,8 +1187,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#BFDBFE',
     backgroundColor: '#EFF6FF',
+    minHeight: 52,
     paddingVertical: 16,
     paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sheetSecondaryOptionText: {
     color: colors.primary,

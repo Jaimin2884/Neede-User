@@ -1,48 +1,94 @@
 import React from 'react';
-import { StyleSheet, View, Text, ScrollView, StatusBar, TouchableOpacity, Image, Platform } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { topStores } from '@/constants/homeData';
+
+import { useNearbyStores } from '@/hooks/useNearbyStores';
 import { colors } from '@/theme/colors';
+import type { StoreItem } from '@/types/home';
+
+function storeImage(store: StoreItem) {
+  if (store.imageUrl) {
+    return { uri: store.imageUrl };
+  }
+
+  return store.image;
+}
 
 export default function StoresScreen() {
   const insets = useSafeAreaInsets();
+  const { stores, loading, error } = useNearbyStores();
 
   return (
     <View style={[styles.root, { paddingTop: Math.max(insets.top, 16) }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Stores Near You</Text>
+        <Text style={styles.headerSubtitle}>Within 3 km of your default address</Text>
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {topStores.map((store) => (
-          <TouchableOpacity
-            key={store.id}
-            style={styles.storeCard}
-            activeOpacity={0.88}
-          >
-            <Image source={store.image} style={styles.storeImage} resizeMode="cover" />
-            <View style={styles.storeInfo}>
-              <View style={styles.titleRow}>
-                <Text style={styles.storeName}>{store.name}</Text>
-                <View style={styles.ratingBadge}>
-                  <Ionicons name="star" size={11} color="#FFFFFF" />
-                  <Text style={styles.ratingText}>{store.rating.toFixed(1)}</Text>
+        {loading ? (
+          <View style={styles.stateBox}>
+            <ActivityIndicator color={colors.primary} size="large" />
+          </View>
+        ) : stores.length === 0 ? (
+          <View style={styles.stateBox}>
+            <Ionicons name="storefront-outline" size={28} color={colors.textSecondary} />
+            <Text style={styles.stateTitle}>No stores nearby</Text>
+            <Text style={styles.stateText}>
+              {error ?? 'No stores within 3 km of your default address.'}
+            </Text>
+          </View>
+        ) : (
+          stores.map((store) => {
+            const image = storeImage(store);
+
+            return (
+              <TouchableOpacity key={store.id} style={styles.storeCard} activeOpacity={0.88}>
+                {image ? (
+                  <Image source={image} style={styles.storeImage} resizeMode="cover" />
+                ) : (
+                  <View style={styles.imageFallback}>
+                    <Ionicons name="storefront" size={36} color={colors.primary} />
+                  </View>
+                )}
+                <View style={styles.storeInfo}>
+                  <View style={styles.titleRow}>
+                    <Text style={styles.storeName}>{store.name}</Text>
+                    {store.rating != null ? (
+                      <View style={styles.ratingBadge}>
+                        <Ionicons name="star" size={11} color="#FFFFFF" />
+                        <Text style={styles.ratingText}>{store.rating.toFixed(1)}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Ionicons name="time-outline" size={13} color="#64748B" />
+                    <Text style={styles.metaText}>{store.time}</Text>
+                    <Text style={styles.dot}>•</Text>
+                    <Ionicons name="location-outline" size={13} color="#64748B" />
+                    <Text style={styles.metaText}>{store.distance}</Text>
+                  </View>
+                  <View style={[styles.tagBadge, store.isOpen === false && styles.closedBadge]}>
+                    <Text style={[styles.tagText, store.isOpen === false && styles.closedText]}>
+                      {store.tag}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.metaRow}>
-                <Ionicons name="time-outline" size={13} color="#64748B" />
-                <Text style={styles.metaText}>{store.time}</Text>
-                <Text style={styles.dot}>•</Text>
-                <Ionicons name="location-outline" size={13} color="#64748B" />
-                <Text style={styles.metaText}>{store.distance}</Text>
-              </View>
-              <View style={styles.tagBadge}>
-                <Text style={styles.tagText}>{store.tag}</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+              </TouchableOpacity>
+            );
+          })
+        )}
       </ScrollView>
     </View>
   );
@@ -64,9 +110,35 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
   },
+  headerSubtitle: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
   content: {
     padding: 16,
     paddingBottom: 40,
+  },
+  stateBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  stateTitle: {
+    marginTop: 4,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  stateText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
   },
   storeCard: {
     backgroundColor: '#FFFFFF',
@@ -91,6 +163,13 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 140,
   },
+  imageFallback: {
+    width: '100%',
+    height: 140,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   storeInfo: {
     padding: 14,
   },
@@ -100,9 +179,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   storeName: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
+    marginRight: 8,
   },
   ratingBadge: {
     flexDirection: 'row',
@@ -145,5 +226,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     color: colors.primary,
+  },
+  closedBadge: {
+    backgroundColor: '#F1F5F9',
+  },
+  closedText: {
+    color: '#64748B',
   },
 });

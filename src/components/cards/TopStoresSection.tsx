@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   View,
   Text,
@@ -9,18 +10,29 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { topStores } from '@/constants/homeData';
 import type { StoreItem } from '@/types/home';
 import { colors } from '@/theme/colors';
 
 interface TopStoresSectionProps {
   stores?: StoreItem[];
+  loading?: boolean;
+  emptyMessage?: string;
   onSeeAllPress?: () => void;
   onStorePress?: (store: StoreItem) => void;
 }
 
+function storeImage(store: StoreItem) {
+  if (store.imageUrl) {
+    return { uri: store.imageUrl };
+  }
+
+  return store.image;
+}
+
 export const TopStoresSection: React.FC<TopStoresSectionProps> = ({
-  stores = topStores,
+  stores = [],
+  loading = false,
+  emptyMessage = 'No stores within 3 km of your default address.',
   onSeeAllPress,
   onStorePress,
 }) => {
@@ -28,24 +40,38 @@ export const TopStoresSection: React.FC<TopStoresSectionProps> = ({
     <View style={styles.container}>
       {/* Section Header */}
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>Top Stores Near You</Text>
-        <TouchableOpacity
-          style={styles.seeAllButton}
-          activeOpacity={0.7}
-          onPress={onSeeAllPress}
-        >
-          <Text style={styles.seeAllText}>See all</Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.primary} />
-        </TouchableOpacity>
+        <Text style={styles.sectionTitle}>Stores Near You</Text>
+        {stores.length > 0 ? (
+          <TouchableOpacity
+            style={styles.seeAllButton}
+            activeOpacity={0.7}
+            onPress={onSeeAllPress}
+          >
+            <Text style={styles.seeAllText}>See all</Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
-      {/* Stores Horizontal List */}
+      {loading ? (
+        <View style={styles.stateBox}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : stores.length === 0 ? (
+        <View style={styles.stateBox}>
+          <Ionicons name="storefront-outline" size={22} color={colors.textSecondary} />
+          <Text style={styles.stateText}>{emptyMessage}</Text>
+        </View>
+      ) : (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {stores.map((store) => (
+        {stores.map((store) => {
+          const image = storeImage(store);
+
+          return (
           <TouchableOpacity
             key={store.id}
             style={styles.storeCard}
@@ -54,11 +80,17 @@ export const TopStoresSection: React.FC<TopStoresSectionProps> = ({
           >
             {/* Storefront Image */}
             <View style={styles.imageContainer}>
-              <Image
-                source={store.image}
-                style={styles.storefrontImage}
-                resizeMode="cover"
-              />
+              {image ? (
+                <Image
+                  source={image}
+                  style={styles.storefrontImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.imageFallback}>
+                  <Ionicons name="storefront" size={28} color={colors.primary} />
+                </View>
+              )}
               {/* Overlapping Brand Logo Badge */}
               <View style={styles.storeLogoCircle}>
                 <View style={styles.storeLogoInner}>
@@ -75,9 +107,13 @@ export const TopStoresSection: React.FC<TopStoresSectionProps> = ({
 
               {/* Rating & Distance */}
               <View style={styles.ratingDistanceRow}>
-                <Ionicons name="star" size={11} color={colors.starRating} style={styles.starIcon} />
-                <Text style={styles.ratingText}>{store.rating.toFixed(1)}</Text>
-                <Text style={styles.dotSeparator}>•</Text>
+                {store.rating != null ? (
+                  <>
+                    <Ionicons name="star" size={11} color={colors.starRating} style={styles.starIcon} />
+                    <Text style={styles.ratingText}>{store.rating.toFixed(1)}</Text>
+                    <Text style={styles.dotSeparator}>•</Text>
+                  </>
+                ) : null}
                 <Text style={styles.distanceText}>{store.distance}</Text>
               </View>
 
@@ -88,13 +124,17 @@ export const TopStoresSection: React.FC<TopStoresSectionProps> = ({
               </View>
 
               {/* Free Delivery Tag */}
-              <View style={styles.freeDeliveryBadge}>
-                <Text style={styles.freeDeliveryText}>{store.tag}</Text>
+              <View style={[styles.freeDeliveryBadge, store.isOpen === false && styles.closedBadge]}>
+                <Text style={[styles.freeDeliveryText, store.isOpen === false && styles.closedText]}>
+                  {store.tag}
+                </Text>
               </View>
             </View>
           </TouchableOpacity>
-        ))}
+          );
+        })}
       </ScrollView>
+      )}
     </View>
   );
 };
@@ -126,6 +166,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
     marginRight: 2,
+  },
+  stateBox: {
+    marginHorizontal: 16,
+    minHeight: 92,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 8,
+  },
+  stateText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -159,6 +219,12 @@ const styles = StyleSheet.create({
   storefrontImage: {
     width: '100%',
     height: '100%',
+  },
+  imageFallback: {
+    flex: 1,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   storeLogoCircle: {
     position: 'absolute',
@@ -248,5 +314,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.primary,
     letterSpacing: 0.3,
+  },
+  closedBadge: {
+    backgroundColor: '#F1F5F9',
+  },
+  closedText: {
+    color: '#64748B',
   },
 });

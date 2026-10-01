@@ -1,14 +1,15 @@
 import React, { useCallback, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   StyleSheet,
   View,
   ScrollView,
   StatusBar,
   Alert,
   Text,
-  TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { CategoryGridSection } from '@/components/cards/CategoryGridSection';
 import { DealsSection } from '@/components/cards/DealsSection';
@@ -16,18 +17,23 @@ import { TopStoresSection } from '@/components/cards/TopStoresSection';
 import { BannerSlider } from '@/components/common/BannerSlider';
 import { HomeHeader } from '@/components/common/HomeHeader';
 import { LocationRequiredModal } from '@/components/modals/LocationRequiredModal';
-import { groceryKitchenCategories, snacksDrinksCategories } from '@/constants/homeData';
+import { useHomeCategories } from '@/hooks/useHomeCategories';
+import { useNearbyStores } from '@/hooks/useNearbyStores';
 import { useRequireLocation } from '@/hooks/useRequireLocation';
 import { getCustomerAddresses } from '@/services/addressApi';
-import type { BannerItem, CategoryItem, DealItem, StoreItem } from '@/types/home';
+import type { BannerItem, CategoryItem, DealItem, HomeCategorySection, StoreItem } from '@/types/home';
 import { colors } from '@/theme/colors';
 import { displayAddressLabel } from '@/utils/address';
-
-const BOTTOM_PEEK_TAGS = ['Dragon Fruit', 'Snacks Corner', 'Baby Apple', 'Apple Cider'];
 
 export default function HomeScreen() {
   const router = useRouter();
   const { prompt: locationPrompt, enableLocation } = useRequireLocation();
+  const { stores, loading: storesLoading, error: storesError } = useNearbyStores();
+  const {
+    sections: categorySections,
+    loading: categoriesLoading,
+    error: categoriesError,
+  } = useHomeCategories();
   const [locationLabel, setLocationLabel] = useState('Address Book');
   const [locationDetail, setLocationDetail] = useState('Select a delivery address');
 
@@ -41,7 +47,7 @@ export default function HomeScreen() {
             return;
           }
 
-          const selected = addresses.find((item) => item.is_default) ?? addresses[0];
+          const selected = addresses.find((item) => item.is_default);
           if (!selected) {
             setLocationLabel('Address Book');
             setLocationDetail('Select a delivery address');
@@ -84,11 +90,15 @@ export default function HomeScreen() {
     Alert.alert(deal.title, `Special price: ₹${deal.price} (${deal.discount})`);
   };
 
-  const handleCategoryPress = (category: CategoryItem) => {
-    Alert.alert(
-      category.name.replace('\n', ' '),
-      `Exploring all products in ${category.name.replace('\n', ' ')}`
-    );
+  const handleCategoryPress = (section: HomeCategorySection, category: CategoryItem) => {
+    router.push({
+      pathname: '/category/id',
+      params: {
+        categoryId: category.categoryId ?? section.id,
+        subCategoryId: category.id,
+        name: section.name,
+      },
+    });
   };
 
   return (
@@ -116,8 +126,11 @@ export default function HomeScreen() {
 
         {/* Top Stores Near You */}
         <TopStoresSection
+          stores={stores}
+          loading={storesLoading}
+          emptyMessage={storesError ?? 'No stores within 3 km of your default address.'}
           onStorePress={handleStorePress}
-          onSeeAllPress={() => Alert.alert('All Stores', 'Showing all nearby partner stores.')}
+          onSeeAllPress={() => router.push('/tabs/stores')}
         />
 
         {/* Deals Near You */}
@@ -126,40 +139,33 @@ export default function HomeScreen() {
           onSeeAllPress={() => Alert.alert('All Deals', 'Showing all hot deals in your area.')}
         />
 
-        {/* Grocery & Kitchen Section */}
-        <CategoryGridSection
-          title="Grocery & Kitchen"
-          items={groceryKitchenCategories}
-          showSeeAll={true}
-          onSeeAllPress={() =>
-            Alert.alert('Grocery & Kitchen', 'Browse full Grocery & Kitchen catalog.')
-          }
-          onItemPress={handleCategoryPress}
-        />
-
-        {/* Snacks & Drinks Section */}
-        <CategoryGridSection
-          title="Snacks & Drinks"
-          items={snacksDrinksCategories}
-          showSeeAll={false}
-          onItemPress={handleCategoryPress}
-        />
-
-        {/* Peeking Tags Row (as shown in reference at the bottom of the feed) */}
-        <View style={styles.peekingContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {BOTTOM_PEEK_TAGS.map((tag, idx) => (
-              <TouchableOpacity
-                key={idx}
-                style={styles.tagChip}
-                activeOpacity={0.75}
-                onPress={() => Alert.alert(tag, `Exploring ${tag}`)}
-              >
-                <Text style={styles.tagChipText}>{tag}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        {categoriesLoading ? (
+          <View style={styles.categoryState}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : categoriesError ? (
+          <View style={styles.categoryState}>
+            <Ionicons name="grid-outline" size={22} color={colors.textSecondary} />
+            <Text style={styles.categoryStateText}>{categoriesError}</Text>
+          </View>
+        ) : categorySections.length === 0 ? (
+          <View style={styles.categoryState}>
+            <Ionicons name="grid-outline" size={22} color={colors.textSecondary} />
+            <Text style={styles.categoryStateText}>
+              Categories appear when nearby stores map products.
+            </Text>
+          </View>
+        ) : (
+          categorySections.map((section) => (
+            <CategoryGridSection
+              key={section.id}
+              title={section.name}
+              items={section.items.slice(0, 8)}
+              showSeeAll={false}
+              onItemPress={(item) => handleCategoryPress(section, item)}
+            />
+          ))
+        )}
 
       </ScrollView>
 
@@ -187,22 +193,22 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 24,
   },
-  peekingContainer: {
-    marginTop: 18,
+  categoryState: {
+    marginTop: 22,
+    marginHorizontal: 16,
+    minHeight: 72,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
   },
-  tagChip: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  tagChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
+  categoryStateText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
 });

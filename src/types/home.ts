@@ -14,11 +14,13 @@ export type BannerItem = {
 export type StoreItem = {
   id: string;
   name: string;
-  rating: number;
+  rating: number | null;
   distance: string;
   time: string;
   tag: string;
-  image: ImageSourcePropType;
+  isOpen?: boolean;
+  image?: ImageSourcePropType;
+  imageUrl?: string;
   logoText: string;
 };
 
@@ -39,4 +41,11 @@ export type CategoryItem = {
   remoteImageUrl?: string;
   iconFallback?: string;
   badge?: string;
+  categoryId?: string;
+};
+
+export type HomeCategorySection = {
+  id: string;
+  name: string;
+  items: CategoryItem[];
 };

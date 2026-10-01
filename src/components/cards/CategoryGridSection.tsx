@@ -70,7 +70,7 @@ export const CategoryGridSection: React.FC<CategoryGridSectionProps> = ({
                   <Image
                     source={{ uri: item.remoteImageUrl }}
                     style={styles.tileImage}
-                    resizeMode="cover"
+                    resizeMode="contain"
                   />
                 ) : (
                   <Ionicons
@@ -124,7 +124,8 @@ const styles = StyleSheet.create({
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+    columnGap: COLUMN_GAP,
     rowGap: 14,
   },
   gridItem: {
@@ -138,11 +139,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    padding: 8,
   },
   tileImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 10,
   },
   itemLabel: {
     fontSize: 10.5,

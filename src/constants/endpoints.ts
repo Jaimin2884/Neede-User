@@ -8,6 +8,8 @@ export const ENDPOINTS = {
   userAddressDelete: (id: number) => `/v1/user/addresses/${id}/delete`,
   userAddressDefault: (id: number) => `/v1/user/addresses/${id}/default`,
   USER_STORES_NEARBY: '/v1/user/stores/nearby',
+  USER_STORE_CATALOG: '/v1/user/stores/catalog',
+  USER_STORE_PRODUCTS: '/v1/user/stores/products',
   USER_HOME_CATEGORIES: '/v1/user/home/categories',
   USER_CATEGORY_PRODUCTS: '/v1/user/categories/products',
 } as const;

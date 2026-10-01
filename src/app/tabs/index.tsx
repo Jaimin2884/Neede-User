@@ -83,7 +83,13 @@ export default function HomeScreen() {
   };
 
   const handleStorePress = (store: StoreItem) => {
-    Alert.alert(store.name, `Delivery in ${store.time} • Free delivery applied!`);
+    router.push({
+      pathname: '/store/id',
+      params: {
+        storeId: store.id,
+        name: store.name,
+      },
+    });
   };
 
   const handleDealPress = (deal: DealItem) => {

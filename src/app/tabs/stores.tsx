@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -26,6 +27,7 @@ function storeImage(store: StoreItem) {
 }
 
 export default function StoresScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { stores, loading, error } = useNearbyStores();
 
@@ -54,7 +56,17 @@ export default function StoresScreen() {
             const image = storeImage(store);
 
             return (
-              <TouchableOpacity key={store.id} style={styles.storeCard} activeOpacity={0.88}>
+              <TouchableOpacity
+                key={store.id}
+                style={styles.storeCard}
+                activeOpacity={0.88}
+                onPress={() =>
+                  router.push({
+                    pathname: '/store/id',
+                    params: { storeId: store.id, name: store.name },
+                  })
+                }
+              >
                 {image ? (
                   <Image source={image} style={styles.storeImage} resizeMode="cover" />
                 ) : (

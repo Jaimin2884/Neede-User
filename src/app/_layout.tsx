@@ -24,7 +24,8 @@ function AuthSessionGate() {
       segments[0] === 'tabs' ||
       segments[0] === 'profile' ||
       segments[0] === 'address-book' ||
-      segments[0] === 'category';
+      segments[0] === 'category' ||
+      segments[0] === 'store';
 
     if (!isAuthenticated && isProtectedRoute) {
       router.replace('/auth/login');
@@ -72,6 +73,13 @@ function RootNavigator() {
         />
         <Stack.Screen
           name="category/id"
+          options={{
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+          }}
+        />
+        <Stack.Screen
+          name="store/id"
           options={{
             animation: 'slide_from_right',
             gestureEnabled: true,

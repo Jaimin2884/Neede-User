@@ -26,8 +26,6 @@ import { colors } from '@/theme/colors';
 import type { CategoryBrowseFilters, CategoryProduct, ProductSort } from '@/types/product';
 import { displayAddressLabel } from '@/utils/address';
 
-const RAIL_WIDTH = 86;
-
 type FilterSheet = 'filters' | 'sort' | 'type' | 'brand' | null;
 
 const SORT_OPTIONS: { id: ProductSort; label: string }[] = [
@@ -109,8 +107,7 @@ export default function CategoryProductsScreen() {
   );
 
   const title = catalog.categoryName || fallbackName || 'Products';
-  const productPaneWidth = Math.max(0, screenWidth - RAIL_WIDTH);
-  const cardWidth = Math.floor((productPaneWidth - 22) / 2);
+  const cardWidth = Math.floor((screenWidth - 16 * 2 - 14) / 2);
 
   const visibleProducts = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -263,16 +260,19 @@ export default function CategoryProductsScreen() {
         renderItem={renderProduct}
         columnWrapperStyle={styles.productRow}
         ListHeaderComponent={
-          selectedSubCategory ? (
-            <View style={styles.sectionIntro}>
-              <Text style={styles.sectionIntroTitle} numberOfLines={1}>
-                {selectedSubCategory.name}
-              </Text>
-              <Text style={styles.sectionIntroMeta}>
-                {catalog.productsLoading ? 'Loading...' : `${visibleProducts.length} items`}
-              </Text>
-            </View>
-          ) : null
+          <View style={styles.sectionIntro}>
+            <Text style={styles.categoryHeading}>{title}</Text>
+            {selectedSubCategory ? (
+              <>
+                <Text style={styles.sectionIntroTitle}>{selectedSubCategory.name}</Text>
+                <Text style={styles.sectionIntroMeta}>
+                  {catalog.productsLoading
+                    ? 'Loading...'
+                    : `${visibleProducts.length} ${visibleProducts.length === 1 ? 'item' : 'items'}`}
+                </Text>
+              </>
+            ) : null}
+          </View>
         }
         style={styles.productListView}
         contentContainerStyle={[styles.productList, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}
@@ -405,38 +405,36 @@ export default function CategoryProductsScreen() {
         </View>
       ) : (
         <View style={styles.body}>
-          {catalog.subCategories.length > 0 ? (
-            <View style={styles.rail}>
-              <ScrollView
-                style={styles.railScroll}
-                contentContainerStyle={[styles.railContent, { paddingBottom: Math.max(insets.bottom, 12) }]}
-                showsVerticalScrollIndicator={false}
-              >
-                {catalog.subCategories.map((item) => {
-                  const selected = item.id === catalog.selectedSubCategoryId;
+          {catalog.subCategories.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.subCategoryRow}
+            >
+              {catalog.subCategories.map((item) => {
+                const selected = item.id === catalog.selectedSubCategoryId;
 
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[styles.railItem, selected && styles.railItemActive]}
-                      activeOpacity={0.8}
-                      onPress={() => catalog.selectSubCategory(item.id)}
-                    >
-                      <View style={[styles.railImageWrap, selected && styles.railImageWrapActive]}>
-                        {item.imageUrl ? (
-                          <Image source={{ uri: item.imageUrl }} style={styles.railImage} resizeMode="contain" />
-                        ) : (
-                          <Ionicons name="basket-outline" size={20} color={colors.primary} />
-                        )}
-                      </View>
-                      <Text style={[styles.railLabel, selected && styles.railLabelActive]} numberOfLines={3}>
-                        {item.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.subChip, selected && styles.subChipActive]}
+                    activeOpacity={0.8}
+                    onPress={() => catalog.selectSubCategory(item.id)}
+                  >
+                    <View style={[styles.subChipImage, selected && styles.subChipImageActive]}>
+                      {item.imageUrl ? (
+                        <Image source={{ uri: item.imageUrl }} style={styles.subChipPhoto} resizeMode="cover" />
+                      ) : (
+                        <Ionicons name="basket-outline" size={16} color={colors.primary} />
+                      )}
+                    </View>
+                    <Text style={[styles.subChipText, selected && styles.subChipTextActive]} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           ) : null}
           <View style={styles.products}>{productPane()}</View>
         </View>
@@ -649,69 +647,54 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'stretch',
     minWidth: 0,
+    backgroundColor: '#F8FAFC',
   },
-  rail: {
-    width: RAIL_WIDTH,
-    maxWidth: RAIL_WIDTH,
-    minWidth: RAIL_WIDTH,
-    flexGrow: 0,
-    flexShrink: 0,
-    alignSelf: 'stretch',
-    overflow: 'hidden',
-    backgroundColor: '#F4F7FB',
-    borderRightWidth: 1,
-    borderRightColor: '#E6EEF5',
+  subCategoryRow: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+    gap: 8,
   },
-  railScroll: {
-    flex: 1,
-    width: RAIL_WIDTH,
-  },
-  railContent: {
-    width: RAIL_WIDTH,
-    paddingTop: 4,
-  },
-  railItem: {
-    width: RAIL_WIDTH,
+  subChip: {
+    height: 40,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: colors.white,
+    paddingRight: 12,
+    paddingLeft: 6,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 10,
-    paddingHorizontal: 6,
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
+    gap: 8,
   },
-  railItemActive: {
-    backgroundColor: colors.white,
-    borderLeftColor: colors.primary,
+  subChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
-  railImageWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    backgroundColor: colors.white,
+  subChipImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  railImageWrapActive: {
-    backgroundColor: colors.primaryLight,
+  subChipImageActive: {
+    backgroundColor: colors.white,
   },
-  railImage: {
-    width: 40,
-    height: 40,
+  subChipPhoto: {
+    width: 28,
+    height: 28,
   },
-  railLabel: {
-    width: RAIL_WIDTH - 14,
-    marginTop: 5,
-    fontSize: 10,
-    lineHeight: 12.5,
-    fontWeight: '600',
-    color: '#475569',
-    textAlign: 'center',
+  subChipText: {
+    maxWidth: 140,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
   },
-  railLabelActive: {
+  subChipTextActive: {
     color: colors.primary,
     fontWeight: '800',
   },
@@ -726,16 +709,25 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   productList: {
-    paddingTop: 12,
-    paddingHorizontal: 8,
+    paddingTop: 4,
+    paddingHorizontal: 16,
   },
   sectionIntro: {
-    marginBottom: 10,
+    marginBottom: 12,
+    paddingTop: 8,
+  },
+  categoryHeading: {
+    marginBottom: 14,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
   },
   sectionIntroTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#0F172A',
   },
   sectionIntroMeta: {
     marginTop: 2,

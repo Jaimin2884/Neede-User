@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { images } from '@/constants/images';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { colors } from '@/theme/colors';
 
 const SPLASH_DURATION_MS = 900;

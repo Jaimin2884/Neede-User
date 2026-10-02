@@ -3,12 +3,17 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Provider } from 'react-redux';
 
-import { DefaultAddressGate } from '@/components/modals/DefaultAddressGate';
+import { DefaultAddressGate } from '@/features/address/components/DefaultAddressGate';
 import { useAppDispatch } from '@/hooks/useAppSelector';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { store } from '@/store';
-import { hydrateAuth } from '@/store/slices/authSlice';
+import { setUnauthorizedHandler } from '@/services/api/client';
+import { hydrateAuth, logout } from '@/store/slices/authSlice';
 import { colors } from '@/theme/colors';
+
+export const unstable_settings = {
+  initialRouteName: 'index',
+};
 
 function AuthSessionGate() {
   const { isAuthenticated, isHydrated } = useAuth();
@@ -16,18 +21,14 @@ function AuthSessionGate() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isHydrated) {
+    if (!isHydrated || isAuthenticated) {
       return;
     }
 
-    const isProtectedRoute =
-      segments[0] === 'tabs' ||
-      segments[0] === 'profile' ||
-      segments[0] === 'address-book' ||
-      segments[0] === 'category' ||
-      segments[0] === 'store';
+    const onAuthScreen = segments[0] === 'auth';
+    const onSplash = segments.length === 0 || segments[0] === 'index';
 
-    if (!isAuthenticated && isProtectedRoute) {
+    if (!onAuthScreen && !onSplash) {
       router.replace('/auth/login');
     }
   }, [isAuthenticated, isHydrated, router, segments]);
@@ -39,7 +40,14 @@ function RootNavigator() {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    dispatch(hydrateAuth());
+    setUnauthorizedHandler(() => {
+      void dispatch(logout());
+    });
+    void dispatch(hydrateAuth());
+
+    return () => {
+      setUnauthorizedHandler(null);
+    };
   }, [dispatch]);
 
   return (

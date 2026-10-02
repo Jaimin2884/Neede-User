@@ -1,9 +1,9 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
-import { getApiErrorMessage } from '@/services/api';
-import { updateUserProfile, verifyLoginOtp } from '@/services/authApi';
-import type { AuthUser, UpdateProfileRequest } from '@/types/auth';
-import { clearAuthSession, getAuthToken, getStoredUser, saveAuthSession } from '@/utils/storage';
+import { getApiErrorMessage, isUnauthenticatedError } from '@/services/api/errors';
+import { fetchCurrentSession, updateUserProfile, verifyLoginOtp } from '@/features/auth/api/authApi';
+import type { AuthUser, UpdateProfileRequest } from '@/features/auth/types/auth';
+import { clearAuthSession, getAuthToken, getStoredUser, saveAuthSession } from '@/services/storage';
 
 type AuthState = {
   user: AuthUser | null;
@@ -19,7 +19,27 @@ const initialState: AuthState = {
 
 export const hydrateAuth = createAsyncThunk('auth/hydrate', async () => {
   const [token, user] = await Promise.all([getAuthToken(), getStoredUser()]);
-  return { token, user };
+
+  if (!token || !user) {
+    if (token || user) {
+      await clearAuthSession();
+    }
+
+    return { token: null, user: null };
+  }
+
+  try {
+    const currentUser = await fetchCurrentSession();
+    await saveAuthSession(token, currentUser);
+    return { token, user: currentUser };
+  } catch (error) {
+    if (isUnauthenticatedError(error)) {
+      await clearAuthSession();
+      return { token: null, user: null };
+    }
+
+    return { token, user };
+  }
 });
 
 export const verifyOtp = createAsyncThunk(

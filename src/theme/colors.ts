@@ -32,5 +32,10 @@ export const colors = {
   discountBadge: '#E23744',
   starRating: '#F59E0B',
   selectFindsBg: '#7A4725',
+
+  cartNavy: '#123B63',
+  savingsBg: '#E7F8EE',
+  savingsText: '#14804A',
+  page: '#F5F7FB',
 } as const;
 

@@ -18,6 +18,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryProductCard } from '@/features/product/components/CategoryProductCard';
+import { CartDock } from '@/features/cart/components/CartDock';
+import { useCart } from '@/features/cart/hooks/useCart';
 import { useStoreCatalog } from '@/features/shop/hooks/useStoreCatalog';
 import { getStoreProducts } from '@/features/shop/api/storeApi';
 import { colors } from '@/theme/colors';
@@ -122,11 +124,11 @@ export default function StoreCatalogScreen() {
   const storeId = firstParam(params.storeId);
   const fallbackName = firstParam(params.name);
   const catalog = useStoreCatalog(storeId);
+  const cart = useCart();
   const listRef = useRef<SectionList<ProductRow, CatalogSection>>(null);
 
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [activeCategoryId, setActiveCategoryId] = useState('');
   const [searchHits, setSearchHits] = useState<CategoryProduct[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -280,19 +282,17 @@ export default function StoreCatalogScreen() {
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 25, minimumViewTime: 60 }).current;
 
-  const changeQuantity = (productId: string, delta: number) => {
-    setQuantities((current) => {
-      const nextValue = (current[productId] ?? 0) + delta;
-
-      if (nextValue <= 0) {
-        const next = { ...current };
-        delete next[productId];
-        return next;
-      }
-
-      return { ...current, [productId]: nextValue };
+  const openProduct = (product: CategoryProduct) => {
+    router.push({
+      pathname: '/product/id',
+      params: {
+        variantId: product.id,
+        storeId: product.storeId || storeId,
+      },
     });
   };
+
+  const storeFor = (product: CategoryProduct) => product.storeId || storeId;
 
   const goBack = () => {
     if (searching) {
@@ -406,7 +406,7 @@ export default function StoreCatalogScreen() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={listHeader}
           columnWrapperStyle={searchHits.length > 0 ? styles.productRow : undefined}
-          contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, 20) + 16 }]}
+          contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, 20) + (cart.bill.itemCount > 0 ? 96 : 16) }]}
           onEndReached={loadMoreSearch}
           onEndReachedThreshold={0.4}
           ListFooterComponent={
@@ -425,9 +425,12 @@ export default function StoreCatalogScreen() {
             <CategoryProductCard
               product={item}
               width={cardWidth}
-              quantity={quantities[item.id] ?? 0}
-              onAdd={() => changeQuantity(item.id, 1)}
-              onRemove={() => changeQuantity(item.id, -1)}
+              quantity={cart.quantityFor(storeFor(item), item.id)}
+              onPress={() => openProduct(item)}
+              onAdd={() => void cart.add(storeFor(item), item.id)}
+              onRemove={() =>
+                void cart.setQuantity(storeFor(item), item.id, cart.quantityFor(storeFor(item), item.id) - 1)
+              }
             />
           )}
         />
@@ -447,10 +450,10 @@ export default function StoreCatalogScreen() {
         windowSize={7}
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: Math.max(insets.bottom, 20) + 16 },
+          { paddingBottom: Math.max(insets.bottom, 20) + (cart.bill.itemCount > 0 ? 96 : 16) },
           sections.length === 0 && styles.listContentEmpty,
         ]}
-        extraData={quantities}
+        extraData={cart.lines}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         onScrollToIndexFailed={({ index }) => {
@@ -487,9 +490,16 @@ export default function StoreCatalogScreen() {
                   key={product.id}
                   product={product}
                   width={cardWidth}
-                  quantity={quantities[product.id] ?? 0}
-                  onAdd={() => changeQuantity(product.id, 1)}
-                  onRemove={() => changeQuantity(product.id, -1)}
+                  quantity={cart.quantityFor(storeFor(product), product.id)}
+                  onPress={() => openProduct(product)}
+                  onAdd={() => void cart.add(storeFor(product), product.id)}
+                  onRemove={() =>
+                    void cart.setQuantity(
+                      storeFor(product),
+                      product.id,
+                      cart.quantityFor(storeFor(product), product.id) - 1
+                    )
+                  }
                 />
               ))}
             </View>
@@ -550,6 +560,7 @@ export default function StoreCatalogScreen() {
         </View>
       </View>
       {renderBody()}
+      <CartDock />
     </View>
   );
 }

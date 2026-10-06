@@ -4,11 +4,12 @@ import { StatusBar } from 'expo-status-bar';
 import { Provider } from 'react-redux';
 
 import { DefaultAddressGate } from '@/features/address/components/DefaultAddressGate';
-import { useAppDispatch } from '@/hooks/useAppSelector';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useAppDispatch } from '@/hooks/useAppSelector';
 import { store } from '@/store';
 import { setUnauthorizedHandler } from '@/services/api/client';
 import { hydrateAuth, logout } from '@/store/slices/authSlice';
+import { loadCart, resetCart } from '@/store/slices/cartSlice';
 import { colors } from '@/theme/colors';
 
 export const unstable_settings = {
@@ -25,8 +26,9 @@ function AuthSessionGate() {
       return;
     }
 
-    const onAuthScreen = segments[0] === 'auth';
-    const onSplash = segments.length === 0 || segments[0] === 'index';
+    const routeSegments = segments as readonly string[];
+    const onAuthScreen = routeSegments[0] === 'auth';
+    const onSplash = routeSegments.length === 0 || routeSegments[0] === 'index';
 
     if (!onAuthScreen && !onSplash) {
       router.replace('/auth/login');
@@ -38,6 +40,7 @@ function AuthSessionGate() {
 
 function RootNavigator() {
   const dispatch = useAppDispatch();
+  const { isAuthenticated, isHydrated } = useAuth();
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
@@ -49,6 +52,19 @@ function RootNavigator() {
       setUnauthorizedHandler(null);
     };
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    if (isAuthenticated) {
+      void dispatch(loadCart());
+      return;
+    }
+
+    dispatch(resetCart());
+  }, [dispatch, isAuthenticated, isHydrated]);
 
   return (
     <>
@@ -90,6 +106,20 @@ function RootNavigator() {
           name="store/id"
           options={{
             animation: 'slide_from_right',
+            gestureEnabled: true,
+          }}
+        />
+        <Stack.Screen
+          name="product/id"
+          options={{
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+          }}
+        />
+        <Stack.Screen
+          name="cart"
+          options={{
+            animation: 'slide_from_bottom',
             gestureEnabled: true,
           }}
         />

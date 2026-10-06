@@ -13,4 +13,8 @@ export const ENDPOINTS = {
   USER_STORE_PRODUCTS: '/v1/user/stores/products',
   USER_HOME_CATEGORIES: '/v1/user/home/categories',
   USER_CATEGORY_PRODUCTS: '/v1/user/categories/products',
+  USER_PRODUCT_DETAIL: '/v1/user/products/detail',
+  USER_CART: '/v1/user/cart',
+  USER_CART_ADD: '/v1/user/cart/add',
+  USER_CART_UPDATE: '/v1/user/cart/update',
 } as const;

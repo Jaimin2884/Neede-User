@@ -24,6 +24,9 @@ export type CategorySubCategory = {
 
 export type CategoryProduct = {
   id: string;
+  productId?: string;
+  storeId?: string;
+  storeName?: string;
   name: string;
   imageUrl?: string;
   unitLabel: string;

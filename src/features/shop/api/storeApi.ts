@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '@/constants/config';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { api } from '@/services/api/client';
+import { parseCategoryProduct } from '@/features/product/api/parseProduct';
 import type { CategoryProduct } from '@/features/product/types/product';
 import type { StoreCatalogCategory, StoreCatalogSubCategory, StoreItem, StoreProfile } from '@/features/shop/types/shop';
 import type { ApiEnvelope } from '@/types/common';
@@ -68,33 +69,7 @@ function readStore(value: unknown): StoreItem | null {
 }
 
 function readCatalogProduct(value: unknown): CategoryProduct | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  const row = value as Record<string, unknown>;
-  const id = Number(row.id);
-  const name = String(row.name ?? '').trim();
-  const price = Number(row.price);
-
-  if (!Number.isFinite(id) || !name || !Number.isFinite(price)) {
-    return null;
-  }
-
-  const mrpValue = Number(row.mrp);
-  const discount = Number(row.discount_percent);
-  const imageUrl = resolveMediaUrl(row.image);
-
-  return {
-    id: String(id),
-    name,
-    imageUrl: imageUrl || undefined,
-    unitLabel: String(row.unit_label ?? '').trim(),
-    price,
-    mrp: Number.isFinite(mrpValue) && mrpValue > price ? mrpValue : null,
-    discountPercent: Number.isFinite(discount) ? Math.max(0, Math.round(discount)) : 0,
-    unitPriceLabel: String(row.unit_price_label ?? '').trim(),
-  };
+  return parseCategoryProduct(value);
 }
 
 function readCatalogSubCategory(value: unknown): StoreCatalogSubCategory | null {

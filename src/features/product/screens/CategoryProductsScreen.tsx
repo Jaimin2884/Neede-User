@@ -20,6 +20,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryProductCard } from '@/features/product/components/CategoryProductCard';
+import { CartDock } from '@/features/cart/components/CartDock';
+import { useCart } from '@/features/cart/hooks/useCart';
 import { useCategoryCatalog } from '@/features/product/hooks/useCategoryCatalog';
 import { getCustomerAddresses } from '@/features/address/api/addressApi';
 import { colors } from '@/theme/colors';
@@ -76,7 +78,7 @@ export default function CategoryProductsScreen() {
   const [query, setQuery] = useState('');
   const [sheet, setSheet] = useState<FilterSheet>(null);
   const [draftFilters, setDraftFilters] = useState<CategoryBrowseFilters>(catalog.filters);
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const cart = useCart();
 
   useFocusEffect(
     useCallback(() => {
@@ -156,31 +158,39 @@ export default function CategoryProductsScreen() {
     router.replace('/tabs');
   };
 
-  const changeQuantity = (productId: string, delta: number) => {
-    setQuantities((current) => {
-      const nextValue = (current[productId] ?? 0) + delta;
-
-      if (nextValue <= 0) {
-        const next = { ...current };
-        delete next[productId];
-        return next;
-      }
-
-      return { ...current, [productId]: nextValue };
-    });
-  };
-
   const shareCategory = () => {
     void Share.share({ message: `Shop ${title} on Neede` });
+  };
+
+  const openProduct = (product: CategoryProduct) => {
+    router.push({
+      pathname: '/product/id',
+      params: {
+        variantId: product.id,
+        storeId: product.storeId ?? '',
+      },
+    });
   };
 
   const renderProduct = ({ item }: { item: CategoryProduct }) => (
     <CategoryProductCard
       product={item}
       width={cardWidth}
-      quantity={quantities[item.id] ?? 0}
-      onAdd={() => changeQuantity(item.id, 1)}
-      onRemove={() => changeQuantity(item.id, -1)}
+      quantity={cart.quantityFor(item.storeId, item.id)}
+      onPress={() => openProduct(item)}
+      onAdd={() => {
+        if (!item.storeId) {
+          openProduct(item);
+          return;
+        }
+        void cart.add(item.storeId, item.id);
+      }}
+      onRemove={() => {
+        if (!item.storeId) {
+          return;
+        }
+        void cart.setQuantity(item.storeId, item.id, cart.quantityFor(item.storeId, item.id) - 1);
+      }}
     />
   );
 
@@ -275,9 +285,12 @@ export default function CategoryProductsScreen() {
           </View>
         }
         style={styles.productListView}
-        contentContainerStyle={[styles.productList, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}
+        contentContainerStyle={[
+          styles.productList,
+          { paddingBottom: Math.max(insets.bottom, 16) + (cart.bill.itemCount > 0 ? 88 : 12) },
+        ]}
         showsVerticalScrollIndicator={false}
-        extraData={quantities}
+        extraData={cart.lines}
       />
     );
   };
@@ -559,6 +572,7 @@ export default function CategoryProductsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+      <CartDock />
     </View>
   );
 }

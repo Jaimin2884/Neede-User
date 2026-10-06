@@ -9,6 +9,7 @@ type CategoryProductCardProps = {
   product: CategoryProduct;
   width: number;
   quantity: number;
+  onPress?: () => void;
   onAdd: () => void;
   onRemove: () => void;
 };
@@ -27,17 +28,20 @@ export const CategoryProductCard: React.FC<CategoryProductCardProps> = ({
   product,
   width,
   quantity,
+  onPress,
   onAdd,
   onRemove,
 }) => {
   return (
     <View style={[styles.card, { width }]}>
       <View style={[styles.imageFrame, { height: width * 0.92 }]}>
-        {product.imageUrl ? (
-          <Image source={{ uri: product.imageUrl }} style={styles.image} resizeMode="cover" />
-        ) : (
-          <Ionicons name="basket-outline" size={36} color={colors.primary} />
-        )}
+        <TouchableOpacity style={styles.imagePress} activeOpacity={0.9} onPress={onPress} disabled={!onPress}>
+          {product.imageUrl ? (
+            <Image source={{ uri: product.imageUrl }} style={styles.image} resizeMode="cover" />
+          ) : (
+            <Ionicons name="basket-outline" size={36} color={colors.primary} />
+          )}
+        </TouchableOpacity>
 
         {product.unitLabel ? (
           <View style={styles.unitBadge}>
@@ -62,14 +66,16 @@ export const CategoryProductCard: React.FC<CategoryProductCardProps> = ({
         )}
       </View>
 
-      <View style={styles.priceRow}>
-        <Text style={styles.price}>{formatRupee(product.price)}</Text>
-        {product.mrp != null ? <Text style={styles.mrp}>{formatRupee(product.mrp)}</Text> : null}
-      </View>
+      <TouchableOpacity activeOpacity={0.8} onPress={onPress} disabled={!onPress}>
+        <View style={styles.priceRow}>
+          <Text style={styles.price}>{formatRupee(product.price)}</Text>
+          {product.mrp != null ? <Text style={styles.mrp}>{formatRupee(product.mrp)}</Text> : null}
+        </View>
 
-      <Text style={styles.name} numberOfLines={2}>
-        {product.name}
-      </Text>
+        <Text style={styles.name} numberOfLines={2}>
+          {product.name}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -91,6 +97,12 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  imagePress: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   unitBadge: {
     position: 'absolute',

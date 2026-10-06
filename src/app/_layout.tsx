@@ -8,6 +8,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useAppDispatch } from '@/hooks/useAppSelector';
 import { store } from '@/store';
 import { setUnauthorizedHandler } from '@/services/api/client';
+import { connectOrderSocket, disconnectOrderSocket } from '@/services/socket/client';
 import { hydrateAuth, logout } from '@/store/slices/authSlice';
 import { loadCart, resetCart } from '@/store/slices/cartSlice';
 import { colors } from '@/theme/colors';
@@ -34,6 +35,25 @@ function AuthSessionGate() {
       router.replace('/auth/login');
     }
   }, [isAuthenticated, isHydrated, router, segments]);
+
+  return null;
+}
+
+function OrderStatusListener() {
+  const { isAuthenticated, isHydrated } = useAuth();
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      disconnectOrderSocket();
+      return;
+    }
+
+    void connectOrderSocket('user');
+  }, [isAuthenticated, isHydrated]);
 
   return null;
 }
@@ -70,6 +90,7 @@ function RootNavigator() {
     <>
       <StatusBar style="dark" />
       <AuthSessionGate />
+      <OrderStatusListener />
       <DefaultAddressGate />
       <Stack
         screenOptions={{
@@ -120,6 +141,27 @@ function RootNavigator() {
           name="cart"
           options={{
             animation: 'slide_from_bottom',
+            gestureEnabled: true,
+          }}
+        />
+        <Stack.Screen
+          name="payment"
+          options={{
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+          }}
+        />
+        <Stack.Screen
+          name="order/[id]"
+          options={{
+            animation: 'slide_from_bottom',
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen
+          name="order/track/[id]"
+          options={{
+            animation: 'slide_from_right',
             gestureEnabled: true,
           }}
         />

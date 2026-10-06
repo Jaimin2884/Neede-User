@@ -17,4 +17,6 @@ export const ENDPOINTS = {
   USER_CART: '/v1/user/cart',
   USER_CART_ADD: '/v1/user/cart/add',
   USER_CART_UPDATE: '/v1/user/cart/update',
+  USER_ORDER_PLACE: '/v1/user/orders/place',
+  USER_ORDER_SHOW: '/v1/user/orders/show',
 } as const;

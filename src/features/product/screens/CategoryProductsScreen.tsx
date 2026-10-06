@@ -3,29 +3,30 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Image,
   Modal,
   Pressable,
   ScrollView,
-  Share,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CategoryProductCard } from '@/features/product/components/CategoryProductCard';
 import { CartDock } from '@/features/cart/components/CartDock';
 import { useCart } from '@/features/cart/hooks/useCart';
 import { useCategoryCatalog } from '@/features/product/hooks/useCategoryCatalog';
 import { getCustomerAddresses } from '@/features/address/api/addressApi';
 import { colors } from '@/theme/colors';
-import type { CategoryBrowseFilters, CategoryProduct, ProductSort } from '@/features/product/types/product';
+import type {
+  CategoryBrowseFilters,
+  CategoryProduct,
+  CategorySubCategory,
+  ProductSort,
+} from '@/features/product/types/product';
 import { displayAddressLabel } from '@/features/address/utils/address';
 
 type FilterSheet = 'filters' | 'sort' | 'type' | 'brand' | null;
@@ -45,6 +46,16 @@ function firstParam(value: string | string[] | undefined): string {
   return value ?? '';
 }
 
+function formatRupee(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+
+  if (Math.abs(rounded - Math.round(rounded)) < 0.001) {
+    return `₹${Math.round(rounded)}`;
+  }
+
+  return `₹${rounded.toFixed(1)}`;
+}
+
 function FilterOption({
   label,
   selected,
@@ -55,9 +66,121 @@ function FilterOption({
   onPress: () => void;
 }) {
   return (
-    <Pressable style={styles.sheetRow} onPress={onPress}>
-      <Text style={[styles.sheetLabel, selected && styles.sheetLabelActive]}>{label}</Text>
+    <Pressable style={styles.sheetOption} onPress={onPress}>
+      <Text style={[styles.sheetOptionText, selected && styles.sheetOptionTextSelected]}>{label}</Text>
       {selected ? <Ionicons name="checkmark-circle" size={20} color={colors.primary} /> : null}
+    </Pressable>
+  );
+}
+
+function FilterPill({
+  icon,
+  label,
+  chevron,
+  active,
+  onPress,
+}: {
+  icon?: keyof typeof Ionicons.glyphMap;
+  label: string;
+  chevron?: boolean;
+  active?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={[styles.filterPill, active && styles.filterPillActive]} onPress={onPress}>
+      {icon ? <Ionicons name={icon} size={15} color={active ? colors.primary : '#334155'} /> : null}
+      <Text style={[styles.filterText, active && styles.filterTextActive]} numberOfLines={1}>
+        {label}
+      </Text>
+      {chevron ? <Ionicons name="chevron-down" size={12} color={active ? colors.primary : '#64748B'} /> : null}
+    </Pressable>
+  );
+}
+
+function SideCategoryItem({
+  category,
+  active,
+  onPress,
+}: {
+  category: CategorySubCategory;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.sideItem, active && styles.sideItemActive]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      {active ? <View style={styles.activeRail} /> : null}
+      <View style={[styles.sideThumb, active && styles.sideThumbActive]}>
+        {category.imageUrl ? (
+          <Image source={{ uri: category.imageUrl }} style={styles.sideThumbImage} resizeMode="contain" />
+        ) : (
+          <Ionicons name="basket-outline" size={22} color={active ? '#0B74B6' : '#64748B'} />
+        )}
+      </View>
+      <Text style={[styles.sideText, active && styles.sideTextActive]} numberOfLines={2}>
+        {category.name}
+      </Text>
+    </Pressable>
+  );
+}
+
+function BrowseProductCard({
+  product,
+  width,
+  quantity,
+  onPress,
+  onAdd,
+  onRemove,
+}: {
+  product: CategoryProduct;
+  width: number;
+  quantity: number;
+  onPress: () => void;
+  onAdd: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <Pressable style={[styles.productCard, { width }]} onPress={onPress}>
+      <View style={styles.productImageWrap}>
+        {product.imageUrl ? (
+          <Image source={{ uri: product.imageUrl }} style={styles.productImage} resizeMode="contain" />
+        ) : (
+          <View style={styles.productImageFallback}>
+            <Ionicons name="cube-outline" size={28} color="#94A3B8" />
+          </View>
+        )}
+      </View>
+      <View style={styles.productMetaRow}>
+        <Text style={styles.productQty} numberOfLines={1}>
+          {product.unitLabel}
+        </Text>
+        {quantity > 0 ? (
+          <View style={styles.qtyStepper}>
+            <Pressable style={styles.qtyStepperBtn} onPress={onRemove} hitSlop={6}>
+              <Ionicons name="remove" size={14} color="#FFFFFF" />
+            </Pressable>
+            <Text style={styles.qtyStepperValue}>{quantity}</Text>
+            <Pressable style={styles.qtyStepperBtn} onPress={onAdd} hitSlop={6}>
+              <Ionicons name="add" size={14} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable style={styles.addButton} onPress={onAdd}>
+            <Text style={styles.addText}>ADD</Text>
+          </Pressable>
+        )}
+      </View>
+      <View style={styles.priceRow}>
+        <Text style={styles.price}>{formatRupee(product.price)}</Text>
+        {product.mrp != null ? <Text style={styles.originalPrice}>{formatRupee(product.mrp)}</Text> : null}
+      </View>
+      <Text style={styles.productName} numberOfLines={2}>
+        {product.name}
+      </Text>
     </Pressable>
   );
 }
@@ -108,8 +231,13 @@ export default function CategoryProductsScreen() {
     }, [])
   );
 
-  const title = catalog.categoryName || fallbackName || 'Products';
-  const cardWidth = Math.floor((screenWidth - 16 * 2 - 14) / 2);
+  const contentWidth = Math.min(screenWidth, 520);
+  const sideRailWidth = screenWidth < 360 ? 76 : 88;
+  const productCardWidth = Math.floor((contentWidth - sideRailWidth - 12 * 2 - 10) / 2);
+  const title = catalog.categoryName || fallbackName || 'Category';
+  const addressLine = locationDetail
+    ? `Delivering to ${locationLabel}: ${locationDetail}`
+    : `Delivering to ${locationLabel}`;
 
   const visibleProducts = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -158,10 +286,6 @@ export default function CategoryProductsScreen() {
     router.replace('/tabs');
   };
 
-  const shareCategory = () => {
-    void Share.share({ message: `Shop ${title} on Neede` });
-  };
-
   const openProduct = (product: CategoryProduct) => {
     router.push({
       pathname: '/product/id',
@@ -172,30 +296,91 @@ export default function CategoryProductsScreen() {
     });
   };
 
-  const renderProduct = ({ item }: { item: CategoryProduct }) => (
-    <CategoryProductCard
-      product={item}
-      width={cardWidth}
-      quantity={cart.quantityFor(item.storeId, item.id)}
-      onPress={() => openProduct(item)}
-      onAdd={() => {
-        if (!item.storeId) {
-          openProduct(item);
-          return;
-        }
-        void cart.add(item.storeId, item.id);
-      }}
-      onRemove={() => {
-        if (!item.storeId) {
-          return;
-        }
-        void cart.setQuantity(item.storeId, item.id, cart.quantityFor(item.storeId, item.id) - 1);
-      }}
-    />
-  );
+  const changeQuantity = (product: CategoryProduct, delta: number) => {
+    if (!product.storeId) {
+      if (delta > 0) {
+        openProduct(product);
+      }
+      return;
+    }
+
+    const next = cart.quantityFor(product.storeId, product.id) + delta;
+    if (delta > 0 && cart.quantityFor(product.storeId, product.id) === 0) {
+      void cart.add(product.storeId, product.id);
+      return;
+    }
+
+    void cart.setQuantity(product.storeId, product.id, next);
+  };
 
   const productPane = () => {
     if (catalog.productsLoading && visibleProducts.length === 0) {
+      return (
+        <View style={styles.paneState}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      );
+    }
+
+    if (visibleProducts.length === 0) {
+      const filtered = query.trim().length > 0 || Boolean(catalog.filters.type) || Boolean(catalog.filters.brandId);
+
+      return (
+        <View style={styles.paneState}>
+          <Ionicons name="basket-outline" size={32} color="#94A3B8" />
+          <Text style={styles.emptyTitle}>{filtered ? 'No matching products' : 'No products here yet'}</Text>
+          <Text style={styles.emptySubtitle}>
+            {filtered ? 'Try clearing filters or pick another category.' : 'Try another category from the list.'}
+          </Text>
+          {filtered ? (
+            <Pressable style={styles.clearFiltersButton} onPress={clearFilters}>
+              <Text style={styles.clearFiltersButtonText}>Clear filters</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingTop: 12,
+          paddingBottom: Math.max(insets.bottom, 16) + (cart.bill.itemCount > 0 ? 88 : 20),
+        }}
+      >
+        {selectedSubCategory ? (
+          <View style={styles.sectionIntro}>
+            <Text style={styles.sectionIntroTitle} numberOfLines={1}>
+              {selectedSubCategory.name}
+            </Text>
+            <Text style={styles.sectionIntroMeta}>
+              {catalog.productsLoading
+                ? 'Loading...'
+                : `${visibleProducts.length} ${visibleProducts.length === 1 ? 'item' : 'items'}`}
+            </Text>
+          </View>
+        ) : null}
+        <View style={styles.grid}>
+          {visibleProducts.map((product) => (
+            <BrowseProductCard
+              key={product.id}
+              product={product}
+              width={productCardWidth}
+              quantity={cart.quantityFor(product.storeId, product.id)}
+              onPress={() => openProduct(product)}
+              onAdd={() => changeQuantity(product, 1)}
+              onRemove={() => changeQuantity(product, -1)}
+            />
+          ))}
+        </View>
+      </ScrollView>
+    );
+  };
+
+  const body = () => {
+    if (catalog.loading && catalog.subCategories.length === 0) {
       return (
         <View style={styles.paneState}>
           <ActivityIndicator color={colors.primary} size="large" />
@@ -207,28 +392,27 @@ export default function CategoryProductsScreen() {
       return (
         <View style={styles.paneState}>
           <Ionicons name="location-outline" size={28} color={colors.primary} />
-          <Text style={styles.stateTitle}>Add a delivery address</Text>
-          <Text style={styles.stateText}>Products are shown from stores within 3 km of your default address.</Text>
-          <TouchableOpacity
+          <Text style={styles.emptyTitle}>Add a delivery address</Text>
+          <Text style={styles.emptySubtitle}>Products are shown from stores within 3 km of your default address.</Text>
+          <Pressable
             style={styles.stateButton}
-            activeOpacity={0.85}
             onPress={() => router.push({ pathname: '/address-book', params: { mode: 'select' } })}
           >
             <Text style={styles.stateButtonText}>Choose address</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       );
     }
 
-    if (catalog.error && catalog.products.length === 0) {
+    if (catalog.error && catalog.subCategories.length === 0) {
       return (
         <View style={styles.paneState}>
           <Ionicons name="alert-circle-outline" size={28} color={colors.primary} />
-          <Text style={styles.stateTitle}>Could not load products</Text>
-          <Text style={styles.stateText}>{catalog.error}</Text>
-          <TouchableOpacity style={styles.stateButton} activeOpacity={0.85} onPress={() => void catalog.reload()}>
+          <Text style={styles.emptyTitle}>Could not load products</Text>
+          <Text style={styles.emptySubtitle}>{catalog.error}</Text>
+          <Pressable style={styles.stateButton} onPress={() => void catalog.reload()}>
             <Text style={styles.stateButtonText}>Try again</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       );
     }
@@ -237,226 +421,119 @@ export default function CategoryProductsScreen() {
       return (
         <View style={styles.paneState}>
           <Ionicons name="storefront-outline" size={28} color={colors.primary} />
-          <Text style={styles.stateTitle}>No products nearby</Text>
-          <Text style={styles.stateText}>No stores within 3 km currently sell this category.</Text>
-        </View>
-      );
-    }
-
-    if (visibleProducts.length === 0) {
-      const filtered = query.trim().length > 0 || Boolean(catalog.filters.type) || Boolean(catalog.filters.brandId);
-
-      return (
-        <View style={styles.paneState}>
-          <Ionicons name="search-outline" size={28} color={colors.primary} />
-          <Text style={styles.stateTitle}>{filtered ? 'No matching products' : 'No products here'}</Text>
-          <Text style={styles.stateText}>
-            {filtered ? 'Try clearing filters or pick another subcategory.' : 'This subcategory has no priced products from nearby stores.'}
-          </Text>
-          {filtered ? (
-            <TouchableOpacity style={styles.stateButton} activeOpacity={0.85} onPress={clearFilters}>
-              <Text style={styles.stateButtonText}>Clear filters</Text>
-            </TouchableOpacity>
-          ) : null}
+          <Text style={styles.emptyTitle}>No products nearby</Text>
+          <Text style={styles.emptySubtitle}>No stores within 3 km currently sell this category.</Text>
         </View>
       );
     }
 
     return (
-      <FlatList
-        data={visibleProducts}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        renderItem={renderProduct}
-        columnWrapperStyle={styles.productRow}
-        ListHeaderComponent={
-          <View style={styles.sectionIntro}>
-            <Text style={styles.categoryHeading}>{title}</Text>
-            {selectedSubCategory ? (
-              <>
-                <Text style={styles.sectionIntroTitle}>{selectedSubCategory.name}</Text>
-                <Text style={styles.sectionIntroMeta}>
-                  {catalog.productsLoading
-                    ? 'Loading...'
-                    : `${visibleProducts.length} ${visibleProducts.length === 1 ? 'item' : 'items'}`}
-                </Text>
-              </>
-            ) : null}
-          </View>
-        }
-        style={styles.productListView}
-        contentContainerStyle={[
-          styles.productList,
-          { paddingBottom: Math.max(insets.bottom, 16) + (cart.bill.itemCount > 0 ? 88 : 12) },
-        ]}
-        showsVerticalScrollIndicator={false}
-        extraData={cart.lines}
-      />
+      <View style={styles.body}>
+        <View style={[styles.sideRail, { width: sideRailWidth }]}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sideRailContent}>
+            {catalog.subCategories.map((item) => (
+              <SideCategoryItem
+                key={item.id}
+                category={item}
+                active={item.id === catalog.selectedSubCategoryId}
+                onPress={() => catalog.selectSubCategory(item.id)}
+              />
+            ))}
+          </ScrollView>
+        </View>
+        <View style={styles.products}>{productPane()}</View>
+      </View>
     );
   };
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) }]}>
-        <View style={styles.titleRow}>
-          <TouchableOpacity style={styles.iconButton} activeOpacity={0.75} onPress={goBack}>
-            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
-          </TouchableOpacity>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <View style={[styles.shell, { width: contentWidth }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <View style={styles.headerTop}>
+            <Pressable style={styles.headerIconButton} onPress={goBack}>
+              <Ionicons name="arrow-back" size={22} color="#0F172A" />
+            </Pressable>
 
-          {searching ? (
-            <TextInput
-              style={styles.searchInput}
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search in this category"
-              placeholderTextColor={colors.placeholder}
-              autoFocus
-              returnKeyType="search"
-            />
-          ) : (
-            <View style={styles.titleBlock}>
-              <Text style={styles.title} numberOfLines={1}>
-                {title}
-              </Text>
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => router.push({ pathname: '/address-book', params: { mode: 'select' } })}
-              >
-                <Text style={styles.deliveryLine} numberOfLines={1}>
-                  <Text style={styles.delivering}>Delivering to {locationLabel}</Text>
-                  {locationDetail ? <Text style={styles.addressDetail}>{` · ${locationDetail}`}</Text> : null}
+            {searching ? (
+              <TextInput
+                style={styles.searchInput}
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Search in this category"
+                placeholderTextColor={colors.placeholder}
+                autoFocus
+                returnKeyType="search"
+              />
+            ) : (
+              <View style={styles.titleBlock}>
+                <Text style={styles.title} numberOfLines={1}>
+                  {title}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                <Pressable onPress={() => router.push({ pathname: '/address-book', params: { mode: 'select' } })}>
+                  <Text style={styles.address} numberOfLines={1}>
+                    {addressLine}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
 
-          <TouchableOpacity style={styles.iconButton} activeOpacity={0.75} onPress={shareCategory}>
-            <Ionicons name="share-outline" size={20} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconButton}
-            activeOpacity={0.75}
-            onPress={() => {
-              setSearching((current) => !current);
-              if (searching) {
-                setQuery('');
-              }
-            }}
-          >
-            <Ionicons name={searching ? 'close' : 'search'} size={20} color={colors.primary} />
-          </TouchableOpacity>
+            <Pressable
+              style={styles.searchIcon}
+              onPress={() => {
+                setSearching((current) => !current);
+                if (searching) {
+                  setQuery('');
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Search products"
+            >
+              <Ionicons name={searching ? 'close' : 'search'} size={22} color="#0F172A" />
+            </Pressable>
+            <Pressable style={styles.profileCircle} onPress={() => router.push('/profile')}>
+              <Ionicons name="person-outline" size={16} color="#FFFFFF" />
+            </Pressable>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+            <FilterPill
+              icon="options-outline"
+              label={activeFilterCount > 0 ? `Filters (${activeFilterCount})` : 'Filters'}
+              active={activeFilterCount > 0}
+              onPress={() => openSheet('filters')}
+            />
+            <FilterPill
+              icon="swap-vertical-outline"
+              label={sortLabel}
+              active={catalog.filters.sort !== 'name_asc'}
+              onPress={() => openSheet('sort')}
+            />
+            <FilterPill
+              label={catalog.filters.type || 'Type'}
+              chevron
+              active={Boolean(catalog.filters.type)}
+              onPress={() => openSheet('type')}
+            />
+            <FilterPill
+              label={selectedBrand?.name || 'Brand'}
+              chevron
+              active={Boolean(catalog.filters.brandId)}
+              onPress={() => openSheet('brand')}
+            />
+          </ScrollView>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-        >
-          <TouchableOpacity
-            style={[styles.chip, activeFilterCount > 0 && styles.chipActive]}
-            activeOpacity={0.8}
-            onPress={() => openSheet('filters')}
-          >
-            <Ionicons
-              name="options-outline"
-              size={14}
-              color={activeFilterCount > 0 ? colors.primary : colors.textPrimary}
-            />
-            <Text style={[styles.chipText, activeFilterCount > 0 && styles.chipTextActive]}>
-              {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : 'Filters'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.chip, catalog.filters.sort !== 'name_asc' && styles.chipActive]}
-            activeOpacity={0.8}
-            onPress={() => openSheet('sort')}
-          >
-            <Ionicons
-              name="swap-vertical-outline"
-              size={14}
-              color={catalog.filters.sort !== 'name_asc' ? colors.primary : colors.textPrimary}
-            />
-            <Text style={[styles.chipText, catalog.filters.sort !== 'name_asc' && styles.chipTextActive]}>
-              {sortLabel}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.chip, Boolean(catalog.filters.type) && styles.chipActive]}
-            activeOpacity={0.8}
-            onPress={() => openSheet('type')}
-          >
-            <Text style={[styles.chipText, Boolean(catalog.filters.type) && styles.chipTextActive]} numberOfLines={1}>
-              {catalog.filters.type || 'Type'}
-            </Text>
-            <Ionicons
-              name="chevron-down"
-              size={14}
-              color={catalog.filters.type ? colors.primary : colors.textSecondary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.chip, Boolean(catalog.filters.brandId) && styles.chipActive]}
-            activeOpacity={0.8}
-            onPress={() => openSheet('brand')}
-          >
-            <Text style={[styles.chipText, Boolean(catalog.filters.brandId) && styles.chipTextActive]} numberOfLines={1}>
-              {selectedBrand?.name || 'Brand'}
-            </Text>
-            <Ionicons
-              name="chevron-down"
-              size={14}
-              color={catalog.filters.brandId ? colors.primary : colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </ScrollView>
+        {body()}
       </View>
 
-      {catalog.loading ? (
-        <View style={styles.paneState}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      ) : (
-        <View style={styles.body}>
-          {catalog.subCategories.length > 1 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.subCategoryRow}
-            >
-              {catalog.subCategories.map((item) => {
-                const selected = item.id === catalog.selectedSubCategoryId;
-
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[styles.subChip, selected && styles.subChipActive]}
-                    activeOpacity={0.8}
-                    onPress={() => catalog.selectSubCategory(item.id)}
-                  >
-                    <View style={[styles.subChipImage, selected && styles.subChipImageActive]}>
-                      {item.imageUrl ? (
-                        <Image source={{ uri: item.imageUrl }} style={styles.subChipPhoto} resizeMode="cover" />
-                      ) : (
-                        <Ionicons name="basket-outline" size={16} color={colors.primary} />
-                      )}
-                    </View>
-                    <Text style={[styles.subChipText, selected && styles.subChipTextActive]} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          ) : null}
-          <View style={styles.products}>{productPane()}</View>
-        </View>
-      )}
-
       <Modal visible={sheet !== null} transparent animationType="slide" onRequestClose={() => setSheet(null)}>
-        <Pressable style={styles.sheetBackdrop} onPress={() => setSheet(null)}>
-          <Pressable style={styles.sheetCard} onPress={() => undefined}>
-            <ScrollView style={styles.sheetList} bounces={false}>
+        <View style={styles.sheetBackdrop}>
+          <Pressable style={styles.sheetDismiss} onPress={() => setSheet(null)} />
+          <View style={[styles.sheetPanel, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <View style={styles.sheetHandle} />
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
               {sheet === 'sort' ? (
                 <>
                   <Text style={styles.sheetTitle}>Sort by</Text>
@@ -555,22 +632,18 @@ export default function CategoryProductsScreen() {
                     />
                   ))}
                   <View style={styles.sheetActions}>
-                    <TouchableOpacity style={styles.sheetSecondaryButton} activeOpacity={0.85} onPress={clearFilters}>
+                    <Pressable style={styles.sheetSecondaryButton} onPress={clearFilters}>
                       <Text style={styles.sheetSecondaryButtonText}>Clear all</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.sheetPrimaryButton}
-                      activeOpacity={0.85}
-                      onPress={() => applyFilters(draftFilters)}
-                    >
+                    </Pressable>
+                    <Pressable style={styles.sheetPrimaryButton} onPress={() => applyFilters(draftFilters)}>
                       <Text style={styles.sheetPrimaryButtonText}>Apply</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </>
               ) : null}
             </ScrollView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
       <CartDock />
     </View>
@@ -580,197 +653,340 @@ export default function CategoryProductsScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.white,
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+  shell: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   header: {
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0',
   },
-  titleRow: {
+  headerTop: {
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: 6,
+    paddingHorizontal: 10,
+    paddingBottom: 4,
   },
-  iconButton: {
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  titleBlock: {
+    flex: 1,
+    marginLeft: 10,
+    marginRight: 4,
+  },
+  title: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  address: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    marginLeft: 8,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  searchIcon: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  titleBlock: {
-    flex: 1,
-    paddingRight: 4,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    letterSpacing: -0.2,
-  },
-  deliveryLine: {
-    marginTop: 1,
-    fontSize: 12,
-  },
-  delivering: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  addressDetail: {
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  filterRow: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    gap: 8,
-  },
-  chip: {
+  profileCircle: {
+    width: 34,
     height: 34,
-    borderRadius: 8,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0B74B6',
+    marginLeft: 2,
+  },
+  filters: {
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    paddingBottom: 10,
+  },
+  filterPill: {
+    height: 32,
+    maxWidth: 180,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    paddingHorizontal: 10,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
   },
-  chipActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
+  filterPillActive: {
+    borderColor: '#93C5FD',
+    backgroundColor: '#EFF6FF',
   },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
+  filterText: {
+    color: '#334155',
+    fontSize: 12,
+    fontWeight: '600',
+    flexShrink: 1,
   },
-  chipTextActive: {
+  filterTextActive: {
     color: colors.primary,
   },
   body: {
     flex: 1,
-    minWidth: 0,
+    flexDirection: 'row',
     backgroundColor: '#F8FAFC',
   },
-  subCategoryRow: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
-    gap: 8,
+  sideRail: {
+    backgroundColor: '#FFFFFF',
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: '#E2E8F0',
   },
-  subChip: {
-    height: 40,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: colors.white,
-    paddingRight: 12,
-    paddingLeft: 6,
-    flexDirection: 'row',
+  sideRailContent: {
+    paddingVertical: 6,
+    paddingBottom: 20,
+  },
+  sideItem: {
+    minHeight: 92,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    position: 'relative',
   },
-  subChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
+  sideItemActive: {
+    backgroundColor: '#F0F9FF',
   },
-  subChipImage: {
-    width: 28,
-    height: 28,
+  activeRail: {
+    position: 'absolute',
+    left: 0,
+    top: 10,
+    bottom: 10,
+    width: 3,
+    borderRadius: 2,
+    backgroundColor: '#0B74B6',
+  },
+  sideThumb: {
+    width: 48,
+    height: 48,
     borderRadius: 14,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  subChipImageActive: {
-    backgroundColor: colors.white,
+  sideThumbActive: {
+    backgroundColor: '#E0F2FE',
+    borderColor: '#BAE6FD',
   },
-  subChipPhoto: {
-    width: 28,
-    height: 28,
+  sideThumbImage: {
+    width: '82%',
+    height: '82%',
   },
-  subChipText: {
-    maxWidth: 140,
-    fontSize: 13,
+  sideText: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '600',
+    lineHeight: 13,
+    textAlign: 'center',
+  },
+  sideTextActive: {
+    color: '#0B74B6',
     fontWeight: '700',
-    color: '#334155',
-  },
-  subChipTextActive: {
-    color: colors.primary,
-    fontWeight: '800',
   },
   products: {
     flex: 1,
     minWidth: 0,
-    overflow: 'hidden',
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
   },
-  productListView: {
+  content: {
     flex: 1,
-    width: '100%',
-  },
-  productList: {
-    paddingTop: 4,
-    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
   },
   sectionIntro: {
-    marginBottom: 12,
-    paddingTop: 8,
-  },
-  categoryHeading: {
-    marginBottom: 14,
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.3,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   sectionIntroTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    flex: 1,
     color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   sectionIntroMeta: {
-    marginTop: 2,
-    fontSize: 12,
+    color: '#94A3B8',
+    fontSize: 11,
     fontWeight: '600',
-    color: colors.textSecondary,
   },
-  productRow: {
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    rowGap: 14,
+    paddingBottom: 20,
+  },
+  productCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EEF2F6',
+    padding: 10,
+  },
+  productImageWrap: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#F8FAFC',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  productImageFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productMetaRow: {
+    height: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 6,
+  },
+  productQty: {
+    flex: 1,
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  price: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  originalPrice: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '500',
+    textDecorationLine: 'line-through',
+  },
+  productName: {
+    color: '#334155',
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  addButton: {
+    height: 28,
+    minWidth: 52,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  addText: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  qtyStepper: {
+    height: 28,
+    minWidth: 72,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  qtyStepperBtn: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyStepperValue: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    minWidth: 16,
+    textAlign: 'center',
   },
   paneState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     gap: 8,
+    backgroundColor: '#FFFFFF',
   },
-  stateTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textPrimary,
+  emptyTitle: {
+    color: '#334155',
+    fontSize: 14,
+    fontWeight: '700',
     textAlign: 'center',
   },
-  stateText: {
-    fontSize: 13,
-    lineHeight: 18,
+  emptySubtitle: {
+    color: '#94A3B8',
+    fontSize: 12,
     fontWeight: '500',
-    color: colors.textSecondary,
     textAlign: 'center',
+  },
+  clearFiltersButton: {
+    marginTop: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#EFF6FF',
+  },
+  clearFiltersButtonText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   stateButton: {
     marginTop: 6,
@@ -780,97 +996,111 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   stateButtonText: {
-    color: colors.white,
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
   },
   sheetBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
     justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
-  sheetCard: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    paddingTop: 16,
-    paddingBottom: 24,
-    maxHeight: '70%',
+  sheetDismiss: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  sheetPanel: {
+    maxHeight: '72%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    marginBottom: 12,
   },
   sheetTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    paddingHorizontal: 18,
+    color: '#0F172A',
+    fontSize: 17,
+    fontWeight: '700',
     marginBottom: 8,
   },
-  sheetList: {
-    flexGrow: 0,
+  sheetSectionLabel: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    marginTop: 14,
+    marginBottom: 4,
   },
-  sheetRow: {
+  sheetOption: {
     minHeight: 48,
-    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0',
+    paddingVertical: 12,
   },
-  sheetLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textPrimary,
+  sheetOptionText: {
+    color: '#334155',
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+    paddingRight: 12,
   },
-  sheetLabelActive: {
+  sheetOptionTextSelected: {
     color: colors.primary,
-    fontWeight: '800',
-  },
-  sheetSectionLabel: {
-    marginTop: 8,
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    fontWeight: '700',
   },
   sheetEmpty: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
+    color: '#94A3B8',
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontWeight: '500',
+    paddingVertical: 16,
   },
   sheetActions: {
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: 18,
-    paddingTop: 12,
+    marginTop: 18,
+    marginBottom: 8,
   },
   sheetSecondaryButton: {
     flex: 1,
     height: 44,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
   sheetSecondaryButtonText: {
+    color: '#334155',
     fontSize: 14,
-    fontWeight: '800',
-    color: colors.textPrimary,
+    fontWeight: '700',
   },
   sheetPrimaryButton: {
     flex: 1,
     height: 44,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.primary,
   },
   sheetPrimaryButtonText: {
+    color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '800',
-    color: colors.white,
+    fontWeight: '700',
   },
 });

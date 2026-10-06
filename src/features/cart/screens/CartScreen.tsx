@@ -18,6 +18,11 @@ import { displayAddressLabel } from '@/features/address/utils/address';
 import { QtyStepper } from '@/features/cart/components/QtyStepper';
 import { useCart } from '@/features/cart/hooks/useCart';
 import type { CartLine } from '@/features/cart/types/cart';
+import { placeCustomerOrder } from '@/features/orders/api/orderApi';
+import { getPaymentMethod } from '@/features/payment/paymentSelection';
+import { useAppDispatch } from '@/hooks/useAppSelector';
+import { getApiErrorMessage } from '@/services/api/errors';
+import { loadCart } from '@/store/slices/cartSlice';
 import { colors } from '@/theme/colors';
 import { formatRupee } from '@/utils/money';
 
@@ -25,13 +30,19 @@ export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const cart = useCart();
+  const dispatch = useAppDispatch();
+  const [placing, setPlacing] = useState(false);
   const [addressLabel, setAddressLabel] = useState('Home');
   const [addressLine, setAddressLine] = useState('Select a delivery address');
+  const [hasAddress, setHasAddress] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<string | null>(getPaymentMethod());
   const [offersOpen, setOffersOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
+
+      setPaymentMethod(getPaymentMethod());
 
       getCustomerAddresses()
         .then((addresses) => {
@@ -41,11 +52,13 @@ export default function CartScreen() {
 
           const selected = addresses.find((item) => item.is_default);
           if (!selected) {
+            setHasAddress(false);
             setAddressLabel('Address');
             setAddressLine('Select a delivery address');
             return;
           }
 
+          setHasAddress(true);
           setAddressLabel(displayAddressLabel(selected));
           setAddressLine(selected.complete_address);
         })
@@ -87,14 +100,69 @@ export default function CartScreen() {
     router.replace('/tabs');
   };
 
-  const checkout = () => {
+  const chooseAddress = () => {
+    router.push({ pathname: '/address-book', params: { mode: 'select' } });
+  };
+
+  const openPayment = () => {
     if (cart.bill.itemCount < 1) {
       return;
     }
 
+    if (!hasAddress) {
+      Alert.alert('Delivery address', 'Choose where this order should be delivered.', [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Choose address', onPress: chooseAddress },
+      ]);
+      return;
+    }
+
+    router.push({ pathname: '/payment', params: { total: String(cart.bill.total) } });
+  };
+
+  const submitOrder = async () => {
+    if (!paymentMethod || placing) {
+      return;
+    }
+
+    setPlacing(true);
+
+    try {
+      const order = await placeCustomerOrder(paymentMethod);
+      await dispatch(loadCart());
+      router.replace({ pathname: '/order/[id]', params: { id: String(order.orderId) } });
+    } catch (error) {
+      Alert.alert('Could not place order', getApiErrorMessage(error, 'Could not place the order.'));
+    } finally {
+      setPlacing(false);
+    }
+  };
+
+  const placeOrder = () => {
+    if (placing) {
+      return;
+    }
+
+    if (!paymentMethod) {
+      openPayment();
+      return;
+    }
+
+    if (!hasAddress) {
+      Alert.alert('Delivery address', 'Choose where this order should be delivered.', [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Choose address', onPress: chooseAddress },
+      ]);
+      return;
+    }
+
     Alert.alert(
-      'Proceed to checkout',
-      `Total ${formatRupee(cart.bill.total)} from ${cart.bill.storeCount} ${cart.bill.storeCount === 1 ? 'store' : 'stores'}. Payment will open in the next step.`
+      'Confirm payment',
+      `Pay ${formatRupee(cart.bill.total)} using ${paymentMethod}.`,
+      [
+        { text: 'Change', onPress: openPayment },
+        { text: 'Place order', onPress: () => { void submitOrder(); } },
+      ]
     );
   };
 
@@ -107,10 +175,6 @@ export default function CartScreen() {
         </TouchableOpacity>
         <View style={styles.headerCopy}>
           <Text style={styles.headerTitle}>Your Basket</Text>
-          <Text style={styles.headerMeta}>
-            {cart.bill.itemCount} {cart.bill.itemCount === 1 ? 'item' : 'items'}
-            {cart.bill.storeCount > 0 ? ` · ${cart.bill.storeCount}/2 stores` : ''}
-          </Text>
         </View>
         <View style={styles.avatar}>
           <Ionicons name="person" size={18} color={colors.primary} />
@@ -142,7 +206,7 @@ export default function CartScreen() {
                   {addressLabel} · {addressLine}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => router.push({ pathname: '/address-book', params: { mode: 'select' } })}>
+              <TouchableOpacity onPress={chooseAddress}>
                 <Text style={styles.change}>Change</Text>
               </TouchableOpacity>
             </View>
@@ -158,7 +222,9 @@ export default function CartScreen() {
               <View key={group.storeId} style={styles.group}>
                 <View style={styles.groupHead}>
                   <Ionicons name="storefront-outline" size={16} color={colors.primary} />
-                  <Text style={styles.groupTitle}>{group.storeName}</Text>
+                  <Text style={styles.groupTitle} numberOfLines={1}>
+                    {group.storeName}
+                  </Text>
                 </View>
                 {group.lines.map((line) => (
                   <View key={line.id} style={styles.line}>
@@ -170,6 +236,9 @@ export default function CartScreen() {
                       )}
                     </View>
                     <View style={styles.lineCopy}>
+                      <Text style={styles.lineStore} numberOfLines={1}>
+                        {line.storeName}
+                      </Text>
                       <Text style={styles.lineName} numberOfLines={2}>
                         {line.name}
                       </Text>
@@ -266,13 +335,27 @@ export default function CartScreen() {
           </ScrollView>
 
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-            <View>
-              <Text style={styles.footerLabel}>TOTAL</Text>
-              <Text style={styles.footerTotal}>{formatRupee(cart.bill.total)}</Text>
-            </View>
-            <TouchableOpacity style={styles.checkout} activeOpacity={0.9} onPress={checkout}>
-              <Text style={styles.checkoutText}>PROCEED TO CHECKOUT</Text>
-              <Ionicons name="arrow-forward" size={16} color={colors.white} />
+            <TouchableOpacity style={styles.payUsing} activeOpacity={0.75} onPress={openPayment}>
+              <Text style={styles.footerLabel}>PAY USING</Text>
+              <View style={styles.payUsingRow}>
+                <Text style={styles.payUsingName} numberOfLines={1}>
+                  {paymentMethod || 'Select method'}
+                </Text>
+                <Ionicons name="chevron-up" size={14} color={colors.textPrimary} />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.placeOrder, placing && styles.placeOrderDisabled]}
+              activeOpacity={0.9}
+              disabled={placing}
+              onPress={placeOrder}
+            >
+              <View style={styles.placeOrderPrice}>
+                <Text style={styles.placeOrderAmount}>{formatRupee(cart.bill.total)}</Text>
+                <Text style={styles.placeOrderTotal}>TOTAL</Text>
+              </View>
+              <Text style={styles.placeOrderText}>{placing ? 'Placing...' : 'Place Order'}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.white} />
             </TouchableOpacity>
           </View>
         </>
@@ -324,14 +407,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     color: colors.textPrimary,
-  },
-  headerMeta: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
   },
   avatar: {
     width: 40,
@@ -404,7 +482,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   groupTitle: {
-    fontSize: 14,
+    flex: 1,
+    fontSize: 13,
     fontWeight: '800',
     color: colors.primaryDark,
   },
@@ -432,6 +511,12 @@ const styles = StyleSheet.create({
   },
   lineCopy: {
     flex: 1,
+  },
+  lineStore: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 2,
   },
   lineName: {
     fontSize: 14,
@@ -595,37 +680,70 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: 14,
+    paddingTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+  },
+  payUsing: {
+    flex: 6,
+    minWidth: 0,
   },
   footerLabel: {
-    color: colors.textSecondary,
-    fontSize: 11,
+    color: colors.placeholder,
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
   },
-  footerTotal: {
-    fontSize: 20,
+  payUsingRow: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  payUsingName: {
+    flexShrink: 1,
+    fontSize: 14,
     fontWeight: '800',
     color: colors.textPrimary,
   },
-  checkout: {
-    flex: 1,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
+  placeOrder: {
+    flex: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingVertical: 10,
     gap: 8,
   },
-  checkoutText: {
+  placeOrderDisabled: {
+    opacity: 0.7,
+  },
+  placeOrderPrice: {
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255,255,255,0.28)',
+    paddingRight: 10,
+  },
+  placeOrderAmount: {
     color: colors.white,
+    fontSize: 15,
     fontWeight: '800',
-    letterSpacing: 0.3,
+  },
+  placeOrderTotal: {
+    marginTop: 1,
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  placeOrderText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '800',
   },
   empty: {
     flex: 1,

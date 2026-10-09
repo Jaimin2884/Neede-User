@@ -1,7 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   Pressable,
   RefreshControl,
@@ -15,6 +14,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
+import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton';
+import { CartDock } from '@/features/cart/components/CartDock';
+import { useCart } from '@/features/cart/hooks/useCart';
 import { getHomeCategories } from '@/features/home/api/homeApi';
 import { useNearbyStores } from '@/features/shop/hooks/useNearbyStores';
 import type { CategoryItem, HomeCategorySection } from '@/features/home/types/home';
@@ -129,6 +131,7 @@ export default function CategoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
+  const cart = useCart();
   const { stores, loading: storesLoading } = useNearbyStores();
   const [sections, setSections] = useState<HomeCategorySection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -220,7 +223,7 @@ export default function CategoryScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 16) + 88 },
+          { paddingBottom: Math.max(insets.bottom, 16) + (cart.bill.itemCount > 0 ? 160 : 88) },
         ]}
         refreshControl={
           <RefreshControl
@@ -233,9 +236,19 @@ export default function CategoryScreen() {
       >
         <View style={[styles.sheet, { width: contentWidth }]}>
           {loading && sections.length === 0 ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color={colors.primary} size="large" />
-            </View>
+            <SkeletonGroup>
+              <View style={styles.section}>
+                <Skeleton width={140} height={16} />
+                <View style={styles.grid}>
+                  {Array.from({ length: 8 }, (_, index) => (
+                    <View key={index} style={{ width: tileWidth, alignItems: 'center' }}>
+                      <Skeleton width={tileWidth} height={tileWidth} radius={16} />
+                      <Skeleton width={Math.round(tileWidth * 0.7)} height={8} style={{ marginTop: 8 }} />
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </SkeletonGroup>
           ) : error && sections.length === 0 ? (
             <View style={styles.stateBox}>
               <Ionicons name="grid-outline" size={28} color={colors.textSecondary} />
@@ -288,12 +301,25 @@ export default function CategoryScreen() {
               </ScrollView>
             </View>
           ) : storesLoading ? (
-            <ActivityIndicator color={colors.primary} style={styles.storesSpinner} />
+            <SkeletonGroup>
+              <View style={styles.section}>
+                <Skeleton width={160} height={16} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.spotlightRow}>
+                  {Array.from({ length: 3 }, (_, index) => (
+                    <View key={index} style={{ width: 180 }}>
+                      <Skeleton width={180} height={96} radius={16} />
+                      <Skeleton width={110} height={12} style={{ marginTop: 8 }} />
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            </SkeletonGroup>
           ) : null}
 
           <Text style={styles.footer}>Everything you need, right around you.</Text>
         </View>
       </ScrollView>
+      <CartDock aboveTabs />
     </View>
   );
 }
@@ -459,8 +485,5 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 13,
     fontWeight: '700',
-  },
-  storesSpinner: {
-    marginTop: 24,
   },
 });

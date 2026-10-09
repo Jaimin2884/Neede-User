@@ -1,40 +1,55 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCart } from '@/features/cart/hooks/useCart';
 import { colors } from '@/theme/colors';
-import { formatRupee } from '@/utils/money';
 
 type CartDockProps = {
   lifted?: number;
+  aboveTabs?: boolean;
 };
 
-export function CartDock({ lifted = 0 }: CartDockProps) {
+export function CartDock({ lifted = 0, aboveTabs = false }: CartDockProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { bill } = useCart();
+  const { bill, lines } = useCart();
 
   if (bill.itemCount < 1) {
     return null;
   }
 
+  const previews = lines.slice(0, 3);
+  const itemLabel = `${bill.itemCount} ${bill.itemCount === 1 ? 'Item' : 'Items'}`;
+
   return (
-    <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 12) + lifted }]}>
-      <TouchableOpacity
-        style={styles.bar}
-        activeOpacity={0.9}
-        onPress={() => router.push('/cart')}
-      >
-        <View style={styles.bag}>
-          <Ionicons name="bag-handle" size={18} color={colors.white} />
+    <View
+      pointerEvents="box-none"
+      style={[
+        styles.wrap,
+        { paddingBottom: (aboveTabs ? 10 : Math.max(insets.bottom, 12)) + lifted },
+      ]}
+    >
+      <TouchableOpacity style={styles.bar} activeOpacity={0.9} onPress={() => router.push('/cart')}>
+        <View style={styles.thumbs}>
+          {previews.map((line, index) => (
+            <View key={line.id} style={[styles.thumb, index > 0 && styles.thumbOverlap]}>
+              {line.imageUrl ? (
+                <Image source={{ uri: line.imageUrl }} style={{ width: 32, height: 32 }} resizeMode="cover" />
+              ) : (
+                <Ionicons name="basket-outline" size={16} color={colors.primary} />
+              )}
+            </View>
+          ))}
         </View>
-        <Text style={styles.summary}>
-          {bill.itemCount} {bill.itemCount === 1 ? 'item' : 'items'} · {formatRupee(bill.sellingTotal)}
-        </Text>
-        <Text style={styles.action}>VIEW CART</Text>
-        <Ionicons name="chevron-forward" size={16} color={colors.white} />
+        <View style={styles.copy}>
+          <Text style={styles.title}>View cart</Text>
+          <Text style={styles.subtitle}>{itemLabel}</Text>
+        </View>
+        <View style={styles.chevron}>
+          <Ionicons name="chevron-forward" size={18} color={colors.white} />
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -46,41 +61,66 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
     paddingTop: 8,
+    alignItems: 'center',
   },
   bar: {
     minHeight: 56,
-    borderRadius: 16,
-    backgroundColor: colors.cartNavy,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingLeft: 8,
+    paddingRight: 8,
     gap: 10,
     shadowColor: '#0F2744',
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.22,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
+    width: '100%',
+    maxWidth: 280,
   },
-  bag: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+  thumbs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 2,
+  },
+  thumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: colors.white,
+    backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  summary: {
+  thumbOverlap: {
+    marginLeft: -12,
+  },
+  copy: {
     flex: 1,
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: '700',
   },
-  action: {
+  title: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '800',
-    letterSpacing: 0.4,
+  },
+  subtitle: {
+    marginTop: 1,
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  chevron: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

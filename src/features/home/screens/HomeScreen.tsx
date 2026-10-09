@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
-  ActivityIndicator,
   StyleSheet,
   View,
   ScrollView,
@@ -13,6 +12,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton';
+import { CartDock } from '@/features/cart/components/CartDock';
+import { useCart } from '@/features/cart/hooks/useCart';
 import { CategoryGridSection } from '@/features/home/components/CategoryGridSection';
 import { DealsSection } from '@/features/home/components/DealsSection';
 import { TopStoresSection } from '@/features/shop/components/TopStoresSection';
@@ -30,6 +32,7 @@ import { displayAddressLabel } from '@/features/address/utils/address';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const cart = useCart();
   const { prompt: locationPrompt, enableLocation } = useRequireLocation();
   const { stores, loading: storesLoading, error: storesError } = useNearbyStores();
   const {
@@ -190,7 +193,10 @@ export default function HomeScreen() {
       {/* Main Scrollable Content */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          cart.bill.itemCount > 0 && styles.scrollContentWithCart,
+        ]}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={200}
         onLayout={(event) => {
@@ -219,9 +225,21 @@ export default function HomeScreen() {
         />
 
         {categoriesLoading ? (
-          <View style={styles.categoryState}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
+          <SkeletonGroup>
+            <View style={styles.categorySkeleton}>
+              <Skeleton width={128} height={16} />
+              <View style={styles.categorySkeletonRow}>
+                {Array.from({ length: 4 }, (_, index) => (
+                  <Skeleton key={index} width="22%" height={74} radius={16} />
+                ))}
+              </View>
+              <View style={styles.categorySkeletonRow}>
+                {Array.from({ length: 4 }, (_, index) => (
+                  <Skeleton key={index} width="22%" height={74} radius={16} />
+                ))}
+              </View>
+            </View>
+          </SkeletonGroup>
         ) : categoriesError ? (
           <View style={styles.categoryState}>
             <Ionicons name="grid-outline" size={22} color={colors.textSecondary} />
@@ -246,13 +264,20 @@ export default function HomeScreen() {
               />
             ))}
             {categoriesLoadingMore ? (
-              <ActivityIndicator color={colors.primary} style={styles.categoryMore} />
+              <SkeletonGroup>
+                <View style={styles.categorySkeletonRow}>
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <Skeleton key={index} width="22%" height={74} radius={16} />
+                  ))}
+                </View>
+              </SkeletonGroup>
             ) : null}
           </>
         )}
 
       </ScrollView>
 
+      <CartDock aboveTabs />
       <LocationRequiredModal
         visible={locationPrompt !== null}
         title={locationPrompt?.title ?? ''}
@@ -277,6 +302,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 24,
   },
+  scrollContentWithCart: {
+    paddingBottom: 96,
+  },
   categoryState: {
     marginTop: 22,
     marginHorizontal: 16,
@@ -295,8 +323,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
-  categoryMore: {
-    marginTop: 8,
-    marginBottom: 12,
+  categorySkeleton: {
+    marginTop: 22,
+    paddingHorizontal: 16,
+  },
+  categorySkeletonRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
 });

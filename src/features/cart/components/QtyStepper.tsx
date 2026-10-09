@@ -8,9 +8,10 @@ type QtyStepperProps = {
   onAdd: () => void;
   onRemove: () => void;
   disabled?: boolean;
+  minWidth?: number;
 };
 
-export function QtyStepper({ quantity, onAdd, onRemove, disabled = false }: QtyStepperProps) {
+export function QtyStepper({ quantity, onAdd, onRemove, disabled = false, minWidth }: QtyStepperProps) {
   if (quantity < 1) {
     return (
       <TouchableOpacity
@@ -25,7 +26,7 @@ export function QtyStepper({ quantity, onAdd, onRemove, disabled = false }: QtyS
   }
 
   return (
-    <View style={[styles.stepper, disabled && styles.disabled]}>
+    <View style={[styles.stepper, minWidth ? { minWidth } : null, disabled && styles.disabled]}>
       <TouchableOpacity style={styles.stepBtn} activeOpacity={0.75} disabled={disabled} onPress={onRemove}>
         <Ionicons name="remove" size={16} color={colors.white} />
       </TouchableOpacity>

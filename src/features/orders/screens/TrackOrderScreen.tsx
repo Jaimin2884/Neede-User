@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton';
 import { useCustomerOrder } from '@/features/orders/hooks/useCustomerOrder';
 import { colors } from '@/theme/colors';
 
@@ -70,7 +71,14 @@ export default function TrackOrderScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator style={styles.loader} color={colors.primary} />
+        <SkeletonGroup>
+          <View style={styles.loader}>
+            <Skeleton width={72} height={72} radius={36} />
+            <Skeleton width={180} height={16} style={{ marginTop: 16 }} />
+            <Skeleton width={140} height={12} style={{ marginTop: 8 }} />
+            <Skeleton width="100%" height={88} radius={16} style={{ marginTop: 24 }} />
+          </View>
+        </SkeletonGroup>
       ) : error || !order ? (
         <Text style={styles.error}>{error || 'Order not found.'}</Text>
       ) : (
@@ -196,6 +204,8 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 48,
+    paddingHorizontal: 20,
+    alignItems: 'center',
   },
   error: {
     marginTop: 40,

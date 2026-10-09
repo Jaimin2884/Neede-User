@@ -22,6 +22,7 @@ import {
   setDefaultCustomerAddress,
 } from '@/features/address/api/addressApi';
 import { getApiErrorMessage } from '@/services/api/errors';
+import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton';
 import { colors } from '@/theme/colors';
 import type { UserAddress } from '@/features/address/types/address';
 import { displayAddressLabel, formatAddressPhone } from '@/features/address/utils/address';
@@ -179,9 +180,17 @@ export default function AddressBookScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
+        <SkeletonGroup>
+          <View style={styles.skeletonList}>
+            {Array.from({ length: 3 }, (_, index) => (
+              <View key={index} style={styles.skeletonCard}>
+                <Skeleton width={72} height={12} />
+                <Skeleton width="80%" height={12} style={{ marginTop: 10 }} />
+                <Skeleton width="55%" height={10} style={{ marginTop: 8 }} />
+              </View>
+            ))}
+          </View>
+        </SkeletonGroup>
       ) : (
         <ScrollView
           contentContainerStyle={[
@@ -387,6 +396,16 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
+  },
+  skeletonList: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    gap: 12,
+  },
+  skeletonCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 16,
   },
   contentWide: {
     width: '100%',

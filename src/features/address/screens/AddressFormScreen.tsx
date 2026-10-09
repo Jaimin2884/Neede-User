@@ -29,6 +29,7 @@ import {
   reverseGeocodeCoords,
   type ResolvedLocation,
 } from '@/services/locationService';
+import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton';
 import { colors } from '@/theme/colors';
 import type { AddressLabel, AddressPayload, UserAddress } from '@/features/address/types/address';
 import type { AuthUser } from '@/features/auth/types/auth';
@@ -532,8 +533,14 @@ export default function AddressFormScreen() {
 
   if (!user || !draft || loadingEdit) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.primary} size="large" />
+      <View style={[styles.formSkeleton, { paddingTop: Math.max(insets.top, 16) }]}>
+        <SkeletonGroup>
+          <Skeleton width={160} height={18} />
+          <Skeleton height={180} radius={16} style={{ marginTop: 16 }} />
+          <Skeleton width="100%" height={48} radius={12} style={{ marginTop: 16 }} />
+          <Skeleton width="100%" height={48} radius={12} style={{ marginTop: 10 }} />
+          <Skeleton width="100%" height={48} radius={12} style={{ marginTop: 10 }} />
+        </SkeletonGroup>
       </View>
     );
   }
@@ -911,6 +918,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F8FAFC',
+  },
+  formSkeleton: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 16,
   },
   header: {
     backgroundColor: colors.white,

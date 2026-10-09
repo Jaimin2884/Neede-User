@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   Modal,
   Pressable,
@@ -16,8 +15,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ProductGridSkeleton, Skeleton, SkeletonGroup } from '@/components/ui/Skeleton';
 import { CartDock } from '@/features/cart/components/CartDock';
 import { useCart } from '@/features/cart/hooks/useCart';
+import { CategoryProductCard } from '@/features/product/components/CategoryProductCard';
 import { useCategoryCatalog } from '@/features/product/hooks/useCategoryCatalog';
 import { getCustomerAddresses } from '@/features/address/api/addressApi';
 import { colors } from '@/theme/colors';
@@ -44,16 +45,6 @@ function firstParam(value: string | string[] | undefined): string {
   }
 
   return value ?? '';
-}
-
-function formatRupee(value: number): string {
-  const rounded = Math.round(value * 10) / 10;
-
-  if (Math.abs(rounded - Math.round(rounded)) < 0.001) {
-    return `₹${Math.round(rounded)}`;
-  }
-
-  return `₹${rounded.toFixed(1)}`;
 }
 
 function FilterOption({
@@ -123,63 +114,6 @@ function SideCategoryItem({
       </View>
       <Text style={[styles.sideText, active && styles.sideTextActive]} numberOfLines={2}>
         {category.name}
-      </Text>
-    </Pressable>
-  );
-}
-
-function BrowseProductCard({
-  product,
-  width,
-  quantity,
-  onPress,
-  onAdd,
-  onRemove,
-}: {
-  product: CategoryProduct;
-  width: number;
-  quantity: number;
-  onPress: () => void;
-  onAdd: () => void;
-  onRemove: () => void;
-}) {
-  return (
-    <Pressable style={[styles.productCard, { width }]} onPress={onPress}>
-      <View style={styles.productImageWrap}>
-        {product.imageUrl ? (
-          <Image source={{ uri: product.imageUrl }} style={styles.productImage} resizeMode="contain" />
-        ) : (
-          <View style={styles.productImageFallback}>
-            <Ionicons name="cube-outline" size={28} color="#94A3B8" />
-          </View>
-        )}
-      </View>
-      <View style={styles.productMetaRow}>
-        <Text style={styles.productQty} numberOfLines={1}>
-          {product.unitLabel}
-        </Text>
-        {quantity > 0 ? (
-          <View style={styles.qtyStepper}>
-            <Pressable style={styles.qtyStepperBtn} onPress={onRemove} hitSlop={6}>
-              <Ionicons name="remove" size={14} color="#FFFFFF" />
-            </Pressable>
-            <Text style={styles.qtyStepperValue}>{quantity}</Text>
-            <Pressable style={styles.qtyStepperBtn} onPress={onAdd} hitSlop={6}>
-              <Ionicons name="add" size={14} color="#FFFFFF" />
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable style={styles.addButton} onPress={onAdd}>
-            <Text style={styles.addText}>ADD</Text>
-          </Pressable>
-        )}
-      </View>
-      <View style={styles.priceRow}>
-        <Text style={styles.price}>{formatRupee(product.price)}</Text>
-        {product.mrp != null ? <Text style={styles.originalPrice}>{formatRupee(product.mrp)}</Text> : null}
-      </View>
-      <Text style={styles.productName} numberOfLines={2}>
-        {product.name}
       </Text>
     </Pressable>
   );
@@ -316,8 +250,8 @@ export default function CategoryProductsScreen() {
   const productPane = () => {
     if (catalog.productsLoading && visibleProducts.length === 0) {
       return (
-        <View style={styles.paneState}>
-          <ActivityIndicator color={colors.primary} size="large" />
+        <View style={styles.productSkeleton}>
+          <ProductGridSkeleton columns={2} cardWidth={productCardWidth} rows={4} padding={12} gap={10} />
         </View>
       );
     }
@@ -364,7 +298,7 @@ export default function CategoryProductsScreen() {
         ) : null}
         <View style={styles.grid}>
           {visibleProducts.map((product) => (
-            <BrowseProductCard
+            <CategoryProductCard
               key={product.id}
               product={product}
               width={productCardWidth}
@@ -382,8 +316,20 @@ export default function CategoryProductsScreen() {
   const body = () => {
     if (catalog.loading && catalog.subCategories.length === 0) {
       return (
-        <View style={styles.paneState}>
-          <ActivityIndicator color={colors.primary} size="large" />
+        <View style={styles.body}>
+          <View style={[styles.sideRail, { width: sideRailWidth }]}>
+            <SkeletonGroup>
+              {Array.from({ length: 8 }, (_, index) => (
+                <View key={index} style={styles.railSkeleton}>
+                  <Skeleton width={48} height={48} radius={24} />
+                  <Skeleton width={42} height={8} style={{ marginTop: 6 }} />
+                </View>
+              ))}
+            </SkeletonGroup>
+          </View>
+          <View style={styles.products}>
+            <ProductGridSkeleton columns={2} cardWidth={productCardWidth} rows={4} padding={12} gap={10} />
+          </View>
         </View>
       );
     }
@@ -768,6 +714,16 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingBottom: 20,
   },
+  railSkeleton: {
+    minHeight: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productSkeleton: {
+    flex: 1,
+    paddingTop: 12,
+    backgroundColor: '#FFFFFF',
+  },
   sideItem: {
     minHeight: 92,
     alignItems: 'center',
@@ -855,106 +811,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     rowGap: 14,
     paddingBottom: 20,
-  },
-  productCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EEF2F6',
-    padding: 10,
-  },
-  productImageWrap: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#F8FAFC',
-  },
-  productImage: {
-    width: '100%',
-    height: '100%',
-  },
-  productImageFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  productMetaRow: {
-    height: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    gap: 6,
-  },
-  productQty: {
-    flex: 1,
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  price: {
-    color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  originalPrice: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '500',
-    textDecorationLine: 'line-through',
-  },
-  productName: {
-    color: '#334155',
-    fontSize: 12,
-    fontWeight: '500',
-    lineHeight: 16,
-    marginTop: 4,
-  },
-  addButton: {
-    height: 28,
-    minWidth: 52,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
-  addText: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  qtyStepper: {
-    height: 28,
-    minWidth: 72,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-  },
-  qtyStepperBtn: {
-    width: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qtyStepperValue: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-    minWidth: 16,
-    textAlign: 'center',
   },
   paneState: {
     flex: 1,

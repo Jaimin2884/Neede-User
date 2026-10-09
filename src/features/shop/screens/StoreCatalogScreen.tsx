@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Image,
   ScrollView,
@@ -18,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryProductCard } from '@/features/product/components/CategoryProductCard';
+import { ProductGridSkeleton, Skeleton, SkeletonGroup } from '@/components/ui/Skeleton';
 import { CartDock } from '@/features/cart/components/CartDock';
 import { useCart } from '@/features/cart/hooks/useCart';
 import { useStoreCatalog } from '@/features/shop/hooks/useStoreCatalog';
@@ -51,11 +51,14 @@ function firstParam(value: string | string[] | undefined): string {
   return value ?? '';
 }
 
-function chunkProducts(products: CategoryProduct[]): ProductRow[] {
+const GRID_PADDING = 12;
+const GRID_GAP = 8;
+
+function chunkProducts(products: CategoryProduct[], columns: number): ProductRow[] {
   const rows: ProductRow[] = [];
 
-  for (let index = 0; index < products.length; index += 2) {
-    const items = products.slice(index, index + 2);
+  for (let index = 0; index < products.length; index += columns) {
+    const items = products.slice(index, index + columns);
     rows.push({
       id: items.map((item) => item.id).join('-'),
       items,
@@ -138,7 +141,8 @@ export default function StoreCatalogScreen() {
   const ensureRef = useRef(catalog.ensureProducts);
   ensureRef.current = catalog.ensureProducts;
 
-  const cardWidth = Math.floor((screenWidth - 16 * 2 - 14) / 2);
+  const columns = 3;
+  const cardWidth = Math.floor((screenWidth - GRID_PADDING * 2 - GRID_GAP * (columns - 1)) / columns);
   const headerName = catalog.store?.name || fallbackName || 'Store';
   const searchNeedle = query.trim();
   const isSearching = searchNeedle.length >= 2;
@@ -151,7 +155,7 @@ export default function StoreCatalogScreen() {
 
       category.subCategories.forEach((subCategory) => {
         const page = catalog.pages[subCategory.id];
-        const rows = chunkProducts(page?.products ?? []);
+        const rows = chunkProducts(page?.products ?? [], columns);
 
         if (!page?.loaded || page.loading || page.hasMore) {
           rows.push({
@@ -176,7 +180,7 @@ export default function StoreCatalogScreen() {
     });
 
     return next;
-  }, [catalog.categories, catalog.pages]);
+  }, [catalog.categories, catalog.pages, columns]);
 
   const categoryChips = useMemo(() => {
     const seen = new Set<string>();
@@ -360,10 +364,16 @@ export default function StoreCatalogScreen() {
   const renderBody = () => {
     if (catalog.loading) {
       return (
-        <View style={styles.loadingBody}>
+        <ScrollView style={styles.loadingBody} showsVerticalScrollIndicator={false}>
           <StoreHero store={null} fallbackName={headerName} />
-          <ActivityIndicator color={colors.primary} size="large" style={styles.loadingSpinner} />
-        </View>
+          <SkeletonGroup>
+            <View style={styles.skeletonCopy}>
+              <Skeleton width={150} height={18} />
+              <Skeleton width={88} height={12} style={{ marginTop: 8 }} />
+            </View>
+          </SkeletonGroup>
+          <ProductGridSkeleton columns={columns} cardWidth={cardWidth} rows={3} padding={GRID_PADDING} gap={GRID_GAP} />
+        </ScrollView>
       );
     }
 
@@ -400,9 +410,10 @@ export default function StoreCatalogScreen() {
     if (isSearching) {
       return (
         <FlatList
+          key={`store-search-${columns}`}
           data={searchHits}
           keyExtractor={(item) => item.id}
-          numColumns={2}
+          numColumns={columns}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={listHeader}
           columnWrapperStyle={searchHits.length > 0 ? styles.productRow : undefined}
@@ -410,10 +421,14 @@ export default function StoreCatalogScreen() {
           onEndReached={loadMoreSearch}
           onEndReachedThreshold={0.4}
           ListFooterComponent={
-            searchLoading ? <ActivityIndicator color={colors.primary} style={styles.lazyRow} /> : null
+            searchLoading && searchHits.length > 0 ? (
+              <ProductGridSkeleton columns={columns} cardWidth={cardWidth} rows={1} padding={GRID_PADDING} gap={GRID_GAP} />
+            ) : null
           }
           ListEmptyComponent={
-            searchLoading ? null : (
+            searchLoading ? (
+              <ProductGridSkeleton columns={columns} cardWidth={cardWidth} rows={3} padding={GRID_PADDING} gap={GRID_GAP} />
+            ) : (
               <View style={styles.emptyBox}>
                 <Ionicons name="search-outline" size={28} color={colors.primary} />
                 <Text style={styles.stateTitle}>No matching products</Text>
@@ -477,9 +492,7 @@ export default function StoreCatalogScreen() {
         renderItem={({ item }) => {
           if (item.status === 'loading' || item.items.length === 0) {
             return (
-              <View style={styles.lazyRow}>
-                <ActivityIndicator color={colors.primary} />
-              </View>
+              <ProductGridSkeleton columns={columns} cardWidth={cardWidth} rows={1} padding={GRID_PADDING} gap={GRID_GAP} />
             );
           }
 
@@ -607,13 +620,10 @@ const styles = StyleSheet.create({
   loadingBody: {
     flex: 1,
   },
-  loadingSpinner: {
-    marginTop: 28,
-  },
-  lazyRow: {
-    minHeight: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
+  skeletonCopy: {
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   searchInput: {
     flex: 1,
@@ -799,8 +809,9 @@ const styles = StyleSheet.create({
   },
   productRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    alignItems: 'flex-start',
+    gap: GRID_GAP,
+    paddingHorizontal: GRID_PADDING,
   },
   stateBox: {
     flex: 1,

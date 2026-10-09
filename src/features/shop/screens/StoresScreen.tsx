@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   Image,
   Platform,
   ScrollView,
@@ -14,7 +13,10 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
+import { CartDock } from '@/features/cart/components/CartDock';
+import { useCart } from '@/features/cart/hooks/useCart';
 import { useNearbyStores } from '@/features/shop/hooks/useNearbyStores';
+import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton';
 import { colors } from '@/theme/colors';
 import type { StoreItem } from '@/features/shop/types/shop';
 
@@ -29,6 +31,7 @@ function storeImage(store: StoreItem) {
 export default function StoresScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const cart = useCart();
   const { stores, loading, error } = useNearbyStores();
 
   return (
@@ -38,11 +41,20 @@ export default function StoresScreen() {
         <Text style={styles.headerTitle}>Stores Near You</Text>
         <Text style={styles.headerSubtitle}>Within 3 km of your default address</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, cart.bill.itemCount > 0 && styles.contentWithCart]}
+        showsVerticalScrollIndicator={false}
+      >
         {loading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color={colors.primary} size="large" />
-          </View>
+          <SkeletonGroup>
+            {Array.from({ length: 3 }, (_, index) => (
+              <View key={index} style={styles.storeSkeleton}>
+                <Skeleton height={140} radius={16} />
+                <Skeleton width="58%" height={14} style={{ marginTop: 12 }} />
+                <Skeleton width="36%" height={10} style={{ marginTop: 8 }} />
+              </View>
+            ))}
+          </SkeletonGroup>
         ) : stores.length === 0 ? (
           <View style={styles.stateBox}>
             <Ionicons name="storefront-outline" size={28} color={colors.textSecondary} />
@@ -102,6 +114,7 @@ export default function StoresScreen() {
           })
         )}
       </ScrollView>
+      <CartDock aboveTabs />
     </View>
   );
 }
@@ -132,6 +145,9 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
+  contentWithCart: {
+    paddingBottom: 112,
+  },
   stateBox: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -151,6 +167,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748B',
     textAlign: 'center',
+  },
+  storeSkeleton: {
+    marginBottom: 16,
   },
   storeCard: {
     backgroundColor: '#FFFFFF',

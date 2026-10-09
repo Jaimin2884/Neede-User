@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   View,
   Text,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { StoreItem } from '@/features/shop/types/shop';
+import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton';
 import { colors } from '@/theme/colors';
 
 interface TopStoresSectionProps {
@@ -54,9 +54,17 @@ export const TopStoresSection: React.FC<TopStoresSectionProps> = ({
       </View>
 
       {loading ? (
-        <View style={styles.stateBox}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
+        <SkeletonGroup>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            {Array.from({ length: 3 }, (_, index) => (
+              <View key={index} style={styles.skeletonCard}>
+                <Skeleton width={146} height={94} radius={16} />
+                <Skeleton width={100} height={12} style={{ marginTop: 8 }} />
+                <Skeleton width={72} height={10} style={{ marginTop: 6 }} />
+              </View>
+            ))}
+          </ScrollView>
+        </SkeletonGroup>
       ) : stores.length === 0 ? (
         <View style={styles.stateBox}>
           <Ionicons name="storefront-outline" size={22} color={colors.textSecondary} />
@@ -190,6 +198,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: 4,
+  },
+  skeletonCard: {
+    width: 146,
+    marginRight: 12,
   },
   storeCard: {
     width: 146,

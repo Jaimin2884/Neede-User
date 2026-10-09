@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Skeleton, SkeletonGroup } from '@/components/ui/Skeleton';
 import { useCustomerOrder } from '@/features/orders/hooks/useCustomerOrder';
 import { colors } from '@/theme/colors';
 import { formatRupee } from '@/utils/money';
@@ -40,7 +41,14 @@ export default function OrderConfirmedScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator style={styles.loader} color={colors.primary} />
+        <SkeletonGroup>
+          <View style={styles.loader}>
+            <Skeleton width={84} height={84} radius={42} />
+            <Skeleton width={190} height={18} style={{ marginTop: 16 }} />
+            <Skeleton width={140} height={12} style={{ marginTop: 8 }} />
+            <Skeleton width="100%" height={96} radius={16} style={{ marginTop: 24 }} />
+          </View>
+        </SkeletonGroup>
       ) : error || !order ? (
         <View style={styles.loader}>
           <Text style={styles.error}>{error || 'Order not found.'}</Text>
